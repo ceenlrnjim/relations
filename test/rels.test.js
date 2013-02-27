@@ -12,3 +12,22 @@ exports.testProject = function(test) {
     test.ok(p[1].b === undefined);
     test.done();
 };
+
+exports.testSelect = function(test) {
+    var rels = require("../src/rels.js");
+    var propEq = rels.propEq;
+    var data = new rels.Relation([{a:1, b:'a'},
+                                  {a:2, b:'b'},
+                                  {a:3, b:'c'},
+                                  {a:4, b:'d'},
+                                  {a:5, b:'e'}]);
+
+   var result = data.select(propEq("a",3));
+   var id3 = result.data[0];
+   test.ok(result instanceof rels.Relation);
+   test.ok(result.data.length === 1);
+    
+   test.ok(id3.a === 3);
+   test.ok(id3.b === 'c');
+   test.done();
+};

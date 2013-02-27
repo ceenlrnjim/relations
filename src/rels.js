@@ -295,6 +295,12 @@ module.exports = (function() {
     // aggregations / group by / having
     // outer joins,
     // indices in the Relation object?
+    //
+
+    // utility functions for use as arguments
+    var _propEq = function(name, value) {
+        return function(o) { return o[name] === value;};
+    }
 
     return {join: _join,
             project: _project,
@@ -307,6 +313,7 @@ module.exports = (function() {
             union: _union,
             difference: _difference,
             aggregate: _aggregate,
+            propEq: _propEq,
             Relation: Relation};
 })();
 
