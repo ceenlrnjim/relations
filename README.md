@@ -19,8 +19,10 @@ Import the library and set up a local alias (I like short code)
         > var Relation = rels.Relation;
         undefined
         ```
+
 Now I can define some relations which are just an array of tuples.
 Tuples are just javascript objects.  There are some limits to what it will handle in terms of nesting.
+    ```
     > var people = [
     ...     { first: "John", last: "Doe", department: "Sales" },
     ...     { first: "Jane", last: "Doe", department: "Corporate" },
@@ -31,8 +33,10 @@ Tuples are just javascript objects.  There are some limits to what it will handl
     ...     { department: "IT", street: "124 abc ave.", state: "NY", zip: 12345 },
     ...     { department: "Corporate", street: "42 A street.", state: "NH", zip: 54321 }];
     undefined
+    ```
 
 Now I can use my relational library functions to do things like join my datasets together, either automatically using shared properties, or with an explicit list of join conditions and properties
+    ```
     > rels.join(people, locations);
     [ { first: 'John',
         last: 'Doe',
@@ -55,7 +59,10 @@ Now I can use my relational library functions to do things like join my datasets
         street: '124 abc ave.',
         state: 'NY',
         zip: 12345 } ]
+    ```
+
 Or I can apply projection to limit the number of columns returned
+    ```
     > rels.project(rels.join(people, locations), ["first","last","state"]);
     [ { first: 'John',
         last: 'Doe',
@@ -66,7 +73,11 @@ Or I can apply projection to limit the number of columns returned
       { first: 'Bill',
         last: 'Smith',
         state: 'NY' } ]
+    ```
+
+
 If you like a more fluent object style interface you can wrap your data in a Relation object.  Most relation functions return instances of Relation.
+    ```
     > var peopleRel = new Relation(people);
     undefined
     > var locationRel = new Relation(locations);
@@ -82,8 +93,10 @@ If you like a more fluent object style interface you can wrap your data in a Rel
          { first: 'Bill',
            last: 'Smith',
            state: 'NY' } ] }
+    ```
 
 I can do selection to filter the entries
+    ```
     > peopleRel.select(function(person) { return person.last === "Doe"; });
     { data: 
        [ { first: 'John',
@@ -92,8 +105,10 @@ I can do selection to filter the entries
          { first: 'Jane',
            last: 'Doe',
            department: 'Corporate' } ] }
+    ```
 
 Or if you like even more brevity build condition functions that return functions
+    ```
     > var propEq = rels.propEq;
     undefined
     > peopleRel.select(propEq("last", "Doe"));
@@ -104,9 +119,12 @@ Or if you like even more brevity build condition functions that return functions
          { first: 'Jane',
            last: 'Doe',
            department: 'Corporate' } ] }
+    ```
 
 There is also a kind of pattern based tuple matching
+    ```
     > peopleRel.match("{first: ?first, last: 'Doe', department: ?dept}");
     { data: 
        [ { first: 'John', dept: 'Sales' },
          { first: 'Jane', dept: 'Corporate' } ] }
+    ```
