@@ -1,3 +1,6 @@
+rpg (Relational PlayGround)
+===========================
+
 Playing with the idea of using relations in applications instead of objects
 
 Implementing some relational tools for javascript to combine relational and 
@@ -10,10 +13,12 @@ tuples are javascript objects
 
 
 Import the library and set up a local alias (I like short code)
-    > var rels = require("./src/rels.js");
-    undefined
-    > var Relation = rels.Relation;
-    undefined
+        ```
+        > var rels = require("./src/rels.js");
+        undefined
+        > var Relation = rels.Relation;
+        undefined
+        ```
 Now I can define some relations which are just an array of tuples.
 Tuples are just javascript objects.  There are some limits to what it will handle in terms of nesting.
     > var people = [
