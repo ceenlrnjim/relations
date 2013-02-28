@@ -122,8 +122,10 @@ module.exports = (function() {
         r.forEach(function(ri) {
             if (ri[p] !== undefined) {
                 ri[p].forEach(function(ripj) {
-                    // TODO: need to filter out property p
-                    result.push(_mergeTuples(ri, ripj, _analyzeJoinColumns([ri],[ripj],[]).allProperties));
+                    // need to filter out property p
+                    var merged = _mergeTuples(ri, ripj, _analyzeJoinColumns([ri],[ripj],[]).allProperties); 
+                    delete merged[p];
+                    result.push(merged);
                 });
             }
         });
