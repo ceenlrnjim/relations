@@ -231,6 +231,18 @@ module.exports = (function() {
                         },
                        initial);
     };
+    
+    /**
+     * Adds derived column(s).  All the properties of the object returned by callback fn will
+     * be unioned with the properties of that row to form the row in the returned relation
+     */
+    var _appendDerived = function(r, fn) {
+        return r.map(function(row) {
+            var newvals = fn(row);
+            return _mergeAllProperties(row, newvals);
+        });
+    };
+
 
     //
     // Object with a prototype of the above functions to allow chaining -
@@ -280,6 +292,12 @@ module.exports = (function() {
     Relation.prototype.aggregate = function(prop, fn, initial) {
         return _aggregate(this.data, prop, fn, initial);
     };
+    Relation.prototype.map = function(fn) {
+        return new Relation(this.data.map(fn));
+    };
+    Relation.prototype.appendDerived = function(fn) {
+        return new Relation(_appendDerived(this.data,fn));
+    };
     // Effectively combines select, project, and rename
     Relation.prototype.match = function(pattern) {
         var matches = [];
@@ -297,7 +315,8 @@ module.exports = (function() {
     // aggregations / group by / having
     // outer joins,
     // indices in the Relation object?
-    //
+    // divide
+    // do I want some kind of non-mutable insert/update
 
     // utility functions for use as arguments
     var _propEq = function(name, value) {
@@ -316,6 +335,7 @@ module.exports = (function() {
             difference: _difference,
             aggregate: _aggregate,
             propEq: _propEq,
+            appendDerived: _appendDerived,
             Relation: Relation};
 })();
 
