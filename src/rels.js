@@ -44,6 +44,14 @@ module.exports = (function() {
         return result;
     };
 
+    var _mergeAllProperties = function(a,b) {
+        var p;
+        var result = {};
+        for (p in a) { result[p] = a[p]; }
+        for (p in b) { result[p] = b[p]; }
+        return result;
+    };
+
     var _mergeTuples = function(r,s,properties) {
         // TODO: support for array tuples
         var result = {};
