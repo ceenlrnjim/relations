@@ -14,6 +14,19 @@ module.exports = (function() {
         };
     };
 
+    var _and = function() {
+        var fnlist = Array.prototype.slice.apply(arguments);
+        return function() {
+            var result = true;
+            var fnargs = arguments;
+            fnlist.forEach(function(fn,i) {
+                result = result && fn.apply(null, fnargs);
+            });
+
+            return result;
+        }
+    };
+
     var _partial = function() {
         var fn = arguments[0];
         var partargs = Array.prototype.slice.apply(arguments).slice(1);
@@ -97,6 +110,7 @@ module.exports = (function() {
 
     return { equals: _equals,
              not: _not,
+             and: _and,
              partial: _partial,
              compose: _compose,
              replaceAll: _replaceAll,
@@ -104,5 +118,3 @@ module.exports = (function() {
              setProperty: _setProperty };
 
 })();
-
-
