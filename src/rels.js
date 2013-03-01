@@ -43,6 +43,19 @@ module.exports = (function() {
 
         return result;
     };
+    
+    /** returns a list of property names that are in a but not b */
+    var _uniqueProperties = function(a,b) {
+        var p;
+        var result = [];
+        for (p in a) { 
+            if (b[p] === undefined) {
+                result.push(p);
+            }
+        }
+
+        return result;
+    };
 
     var _mergeAllProperties = function(a,b) {
         var p;
@@ -58,6 +71,8 @@ module.exports = (function() {
         properties.forEach(function(prop) {
             // if we have non-joined columns that match, can't have two properties with the same name
             // so currently using the _l/_r prefixes to signify which side they came from
+            // TODO: need to consider the impact of hasOwnProperty versus prototype inherited properties
+            // - I probably want some ability to use tuples that are objects with prototype inherited properties
             if (r.hasOwnProperty(prop)) {
                 if (s.hasOwnProperty(prop)) {
                     result[prop + "_l"] = r[prop];
@@ -209,6 +224,9 @@ module.exports = (function() {
         }
     };
 
+    // TODO: set operations below may not appropriately handle duplicate rows
+    // (might get duplicate matches where they should be distinct)
+
     /**
      * return all the tuples that are in both r and t
      */
@@ -249,6 +267,25 @@ module.exports = (function() {
             var newvals = fn(row);
             return _mergeAllProperties(row, newvals);
         });
+    };
+
+    var _divide = function(r,s) {
+        var uniqueR = _uniqueProperties(r[0], s[0]);
+        var restrictedR = _project(r, uniqueR);
+        var cartProd = _join(restrictedR, s);
+        var possibleButNot = _difference(cartProd, r);
+        var restrictedPossibleButNot = _project(possibleButNot, uniqueR);
+        return _distinct(_difference(restrictedR, restrictedPossibleButNot));
+
+    };
+
+    var _distinct = function(r) {
+        return r.reduce(function(result, row) { 
+            if (!_containsRow(result, row)) {
+                result.push(row);
+            }
+            return result;
+        }, []);
     };
 
 
@@ -306,6 +343,15 @@ module.exports = (function() {
     Relation.prototype.appendDerived = function(fn) {
         return new Relation(_appendDerived(this.data,fn));
     };
+    Relation.prototype.divideBy = function(r) {
+        return new Relation(_divide(this.data, r.data));
+    };
+    Relation.prototype.distinct = function() {
+        return new Relation(_distinct(this.data));
+    };
+    Relation.prototype.length = function() {
+        return this.data.length;
+    };
     // Effectively combines select, project, and rename
     Relation.prototype.match = function(pattern) {
         var matches = [];
@@ -344,6 +390,7 @@ module.exports = (function() {
             aggregate: _aggregate,
             propEq: _propEq,
             appendDerived: _appendDerived,
+            divide: _divide,
+            distinct: _distinct,
             Relation: Relation};
 })();
-
