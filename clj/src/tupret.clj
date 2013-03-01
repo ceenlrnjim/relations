@@ -31,7 +31,7 @@
                 (recur nil nil)))))))
 
 
-(defn patternMatches
+(defn pattern-matches
   [pattern tuples]
   (loop [ tupleseq tuples
          result [] ]
