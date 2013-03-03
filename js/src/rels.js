@@ -288,6 +288,32 @@ module.exports = (function() {
         }, []);
     };
 
+    /*
+     * applies multiple projections to single relation.
+     * First argument r is the relation.
+     * Remaining arguments are arrays of the properties for each projection.
+     * Returns an array of relations corresponding to the specified projections
+     */
+    var _projectMultiple = function() {
+        var r = arguments[0];
+        var projections = Array.prototype.slice.apply(arguments).slice(1);
+        var results = projections.map(function() { return []; });
+
+        r.forEach(function(srcrow) {
+            var tgtrow;
+            var proj;
+            for (var i=0;i<projections.length;i++) {
+                tgtrow = {};
+                proj = projections[i];
+                proj.forEach(function(prop) {
+                    tgtrow[prop] = srcrow[prop];
+                });
+                results[i].push(tgtrow); 
+            }
+        });
+        return results;
+    };
+
 
     //
     // Object with a prototype of the above functions to allow chaining -
@@ -352,6 +378,10 @@ module.exports = (function() {
     Relation.prototype.length = function() {
         return this.data.length;
     };
+    Relation.prototype.projectMultiple = function() {
+        var rels = _projectMultiple.apply(this, this.data, arguments);
+        return rels.map(function(r) { return new Relation(r); });
+    };
     // Effectively combines select, project, and rename
     Relation.prototype.match = function(pattern) {
         var matches = [];
@@ -392,5 +422,6 @@ module.exports = (function() {
             appendDerived: _appendDerived,
             divide: _divide,
             distinct: _distinct,
+            projectMultiple: _projectMultiple,
             Relation: Relation};
 })();

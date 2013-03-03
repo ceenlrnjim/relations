@@ -108,3 +108,27 @@ exports.testAnd = function(test) {
     test.ok(!rangetest(1));
     test.done();
 };
+
+exports.testProjectMultiple = function(test) {
+    var rels = require("../src/rels.js");
+    var data = [{ a: 1, b: 11, c: 111, d:1111},
+                { a: 2, b: 22, c: 222, d:2222},
+                { a: 3, b: 33, c: 333, d:3333},
+                { a: 4, b: 44, c: 444, d:4444},
+                { a: 5, b: 55, c: 555, d:5555},
+                { a: 6, b: 66, c: 666, d:6666}];
+
+    var result = rels.projectMultiple(data, ["a","c"], ["d","b"]);
+    test.ok(result.length === 2, "incorrect number of projections");
+    test.ok(result[0].length === 6, "incorrect number of rows (0)");
+    test.ok(result[1].length === 6, "incorrect number of rows (1)");
+    test.ok(result[0][0].a !== undefined, "a missing from 0");
+    test.ok(result[0][0].c !== undefined, "c missing from 0");
+    test.ok(result[0][0].b === undefined, "unexpected b");
+    test.ok(result[0][0].d === undefined, "unexpected d");
+    test.ok(result[1][0].a === undefined, "unexpected a");
+    test.ok(result[1][0].c === undefined, "unexpected c");
+    test.ok(result[1][0].b !== undefined, "missing b");
+    test.ok(result[1][0].d !== undefined, "missing d");
+    test.done();
+};
