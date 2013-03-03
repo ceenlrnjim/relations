@@ -157,3 +157,23 @@ exports.testUnjoin = function(test) {
     console.log(results[0].join(results[1]).rename("a_l","a").project(["a","b","c","d"]).join(results[2]).rename(["a_l","d_l"],["a","d"]).project(["a","b","c","d","e"]));
     test.done();
 };
+
+exports.testColumnArray = function(test) {
+    var rels = require("../src/rels.js");
+    var data = [
+            {a:1, b:10},
+            {a:2, b:11},
+            {a:3, b:12}];
+
+    var col_a = rels.columnArray(data, "a");
+    test.ok(col_a[0] === 1);
+    test.ok(col_a[1] === 2);
+    test.ok(col_a[2] === 3);
+
+    var col_b = rels.columnArray(data, "b");
+    test.ok(col_b[0] === 10);
+    test.ok(col_b[1] === 11);
+    test.ok(col_b[2] === 12);
+
+    test.done();
+};

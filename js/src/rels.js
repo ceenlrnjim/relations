@@ -324,6 +324,12 @@ module.exports = (function() {
         return _projectMultiple.apply(null, arguments).map(_distinct);
     };
 
+    /*
+    * returns an array of the values from the specified columns
+    */
+    var _columnArray = function(r, p) {
+        return r.map(function(row) { return row[p]; });
+    };
 
     //
     // Object with a prototype of the above functions to allow chaining -
@@ -399,6 +405,9 @@ module.exports = (function() {
         var p = _unjoin.apply(null, [this.data].concat(projections));
         return p.map(function(r) { return new Relation(r); });
     };
+    Relation.prototype.columnArray = function(p) {
+        return _columnArray(this.data, p);
+    };
     // Effectively combines select, project, and rename
     Relation.prototype.match = function(pattern) {
         var matches = [];
@@ -416,7 +425,6 @@ module.exports = (function() {
     // aggregations / group by / having
     // outer joins,
     // indices in the Relation object?
-    // divide
     // do I want some kind of non-mutable insert/update
     // projectMultiple
     // unjoin 
@@ -444,5 +452,6 @@ module.exports = (function() {
             distinct: _distinct,
             projectMultiple: _projectMultiple,
             unjoin: _unjoin,
+            columnArray: _columnArray,
             Relation: Relation};
 })();
