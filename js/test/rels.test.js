@@ -154,5 +154,6 @@ exports.testUnjoin = function(test) {
     test.ok(results[0].data.length === 2);
     test.ok(results[1].data.length === 4);
     test.ok(results[2].data.length === 8);
+    console.log(results[0].join(results[1]).rename("a_l","a").project(["a","b","c","d"]).join(results[2]).rename(["a_l","d_l"],["a","d"]).project(["a","b","c","d","e"]));
     test.done();
 };

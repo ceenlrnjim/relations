@@ -420,6 +420,7 @@ module.exports = (function() {
     // do I want some kind of non-mutable insert/update
     // projectMultiple
     // unjoin 
+    // unflatten
 
     // utility functions for use as arguments
     var _propEq = function(name, value) {
