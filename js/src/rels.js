@@ -314,6 +314,16 @@ module.exports = (function() {
         return results;
     };
 
+    /*
+     * This function is meant to break apart a relation that represents a hierarchical join
+     * between parent/child entities where the parent attributes are replicated on each child row.
+     * First arg is the relation, remaining arguments are arrays of the columns corresponding
+     * to each entity
+     */
+    var _unjoin = function() {
+        return _projectMultiple.apply(null, arguments).map(_distinct);
+    };
+
 
     //
     // Object with a prototype of the above functions to allow chaining -
@@ -379,8 +389,15 @@ module.exports = (function() {
         return this.data.length;
     };
     Relation.prototype.projectMultiple = function() {
-        var rels = _projectMultiple.apply(this, this.data, arguments);
-        return rels.map(function(r) { return new Relation(r); });
+        var projections = Array.prototype.slice.apply(arguments);
+        var p = _projectMultiple.apply(null, [this.data].concat(projections));
+        console.log(p);
+        return p.map(function(r) { return new Relation(r); });
+    };
+    Relation.prototype.unjoin = function() {
+        var projections = Array.prototype.slice.apply(arguments);
+        var p = _unjoin.apply(null, [this.data].concat(projections));
+        return p.map(function(r) { return new Relation(r); });
     };
     // Effectively combines select, project, and rename
     Relation.prototype.match = function(pattern) {
@@ -401,6 +418,8 @@ module.exports = (function() {
     // indices in the Relation object?
     // divide
     // do I want some kind of non-mutable insert/update
+    // projectMultiple
+    // unjoin 
 
     // utility functions for use as arguments
     var _propEq = function(name, value) {
@@ -423,5 +442,6 @@ module.exports = (function() {
             divide: _divide,
             distinct: _distinct,
             projectMultiple: _projectMultiple,
+            unjoin: _unjoin,
             Relation: Relation};
 })();

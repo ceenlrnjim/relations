@@ -118,17 +118,41 @@ exports.testProjectMultiple = function(test) {
                 { a: 5, b: 55, c: 555, d:5555},
                 { a: 6, b: 66, c: 666, d:6666}];
 
-    var result = rels.projectMultiple(data, ["a","c"], ["d","b"]);
+    // TODO: need to test the Relation method version as well
+    var result = new rels.Relation(data).projectMultiple(["a","c"], ["d","b"]);
     test.ok(result.length === 2, "incorrect number of projections");
-    test.ok(result[0].length === 6, "incorrect number of rows (0)");
-    test.ok(result[1].length === 6, "incorrect number of rows (1)");
-    test.ok(result[0][0].a !== undefined, "a missing from 0");
-    test.ok(result[0][0].c !== undefined, "c missing from 0");
-    test.ok(result[0][0].b === undefined, "unexpected b");
-    test.ok(result[0][0].d === undefined, "unexpected d");
-    test.ok(result[1][0].a === undefined, "unexpected a");
-    test.ok(result[1][0].c === undefined, "unexpected c");
-    test.ok(result[1][0].b !== undefined, "missing b");
-    test.ok(result[1][0].d !== undefined, "missing d");
+    test.ok(result[0].data.length === 6, "incorrect number of rows (0)");
+    test.ok(result[1].data.length === 6, "incorrect number of rows (1)");
+    test.ok(result[0].data[0].a !== undefined, "a missing from 0");
+    test.ok(result[0].data[0].c !== undefined, "c missing from 0");
+    test.ok(result[0].data[0].b === undefined, "unexpected b");
+    test.ok(result[0].data[0].d === undefined, "unexpected d");
+    test.ok(result[1].data[0].a === undefined, "unexpected a");
+    test.ok(result[1].data[0].c === undefined, "unexpected c");
+    test.ok(result[1].data[0].b !== undefined, "missing b");
+    test.ok(result[1].data[0].d !== undefined, "missing d");
+    test.done();
+};
+
+exports.testUnjoin = function(test) {
+    var data = [
+    {a: 1, b:1, c: 1, d:11, e: 111},
+    {a: 1, b:1, c: 1, d:11, e: 112},
+    {a: 1, b:1, c: 1, d:12, e: 121},
+    {a: 1, b:1, c: 1, d:12, e: 122},
+    {a: 2, b:2, c: 2, d:21, e: 211},
+    {a: 2, b:2, c: 2, d:21, e: 212},
+    {a: 2, b:2, c: 2, d:22, e: 221},
+    {a: 2, b:2, c: 2, d:22, e: 222}];
+
+    var rels = require("../src/rels.js");
+
+    var r = new rels.Relation(data);
+    var results = r.unjoin(["a","b","c"], ["a","d"], ["a","d","e"]);
+   // var results = rels.unjoin(data,["a","b","c"], ["a","d"], ["a","d","e"]);
+    test.ok(results.length === 3);
+    test.ok(results[0].data.length === 2);
+    test.ok(results[1].data.length === 4);
+    test.ok(results[2].data.length === 8);
     test.done();
 };
