@@ -51,10 +51,8 @@
   [r s & c]
   (let [conditions (if (empty? c) (common-keys-conditions r s) c)]
     (if (every? #(= = (nth % 2)) conditions)
-      (do (println "all conditions are equality, using hash-join")
-        (apply hash-join r s conditions))
-      (do (println "non-equals condition, calling nested-loop-join")
-        (apply nested-loop-join r s conditions)))))
+        (apply hash-join r s conditions)
+        (apply nested-loop-join r s conditions))))
 
 (defn project
   "returns a sequence of maps containing only the specified keys"
