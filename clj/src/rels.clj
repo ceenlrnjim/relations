@@ -26,13 +26,35 @@
         common-keys (clojure.set/intersection (set (keys ri)) (set (keys si)))]
     (for [k common-keys] [k k =])))
 
-(defn join
+(defn nested-loop-join
   "r and s are relations, conditions is a list of [r_key s_key (fn)]"
+  [r s & conditions]
+  (for [ri r si s :when (all-conditions-met conditions ri si)]
+    (merge ri si))) ; TODO: need to handle matching keys that aren't part of the join and might have different values
+
+(defn hash-join
+  [r s & conditions]
+  (let [r-join-cols (map first conditions)
+        s-join-cols (map second conditions)
+        ; NB: column names can be different and therefore can't be in the hash
+        hashfn (fn [row cols] (hash (vals (select-keys row cols))))
+        r-hash (reduce #(assoc %1 (hashfn %2 r-join-cols) %2) {} r)]
+    (reduce
+      (fn [result row]
+        (let [matching-r (get r-hash (hashfn row s-join-cols))]
+          (if (nil? matching-r) result
+            (conj result (merge matching-r row))))); TODO: need to handle matching keys that aren't part of the join and might have different values
+      []
+      s)))
+
+(defn join
   [r s & c]
   (let [conditions (if (empty? c) (common-keys-conditions r s) c)]
-    ; nested loop join - look into improving with sort/merge or hash join
-    (for [ri r si s :when (all-conditions-met conditions ri si)]
-      (merge ri si)))) ; TODO: need to handle matching keys that aren't part of the join and might have different values
+    (if (every? #(= = (nth % 2)) conditions)
+      (do (println "all conditions are equality, using hash-join")
+        (apply hash-join r s conditions))
+      (do (println "non-equals condition, calling nested-loop-join")
+        (apply nested-loop-join r s conditions)))))
 
 (defn project
   "returns a sequence of maps containing only the specified keys"
@@ -105,3 +127,13 @@
                      (difference r)
                      (project unique-keys))]
     (difference r-prime bad-rows)))
+
+
+;(defn project-multiple
+  ;[r & p]
+  ;(reduce 
+    ;(fn [results row]
+      ;(
+    
+
+; TODO: unjoin, projectMultiple, projectInto, projectMultipleInto, flatten, unflatten
