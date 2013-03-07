@@ -126,12 +126,23 @@
                      (project unique-keys))]
     (difference r-prime bad-rows)))
 
+(defn- multi-project-row
+  [row & projections]
+  (map
+    #(select-keys row %)
+    projections))
 
-;(defn project-multiple
-  ;[r & p]
-  ;(reduce 
-    ;(fn [results row]
-      ;(
-    
+(defn- append-row
+  " result is sequence of projections, row-projections is matching sequence of values for that row"
+  [result row-projections]
+  (map #(conj %1 %2) result row-projections))
 
-; TODO: unjoin, projectMultiple, projectInto, projectMultipleInto, flatten, unflatten
+(defn multi-project
+  [r & projections]
+  (reduce
+    (fn [result row]
+      (append-row result (apply multi-project-row row projections)))
+    (map (fn [_] []) projections)
+  r))
+
+; TODO: unjoin, projectInto, projectMultipleInto, flatten, unflatten
