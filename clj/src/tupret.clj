@@ -33,11 +33,5 @@
 
 (defn pattern-matches
   [tuples pattern]
-  (loop [ tupleseq tuples
-         result [] ]
-    (if 
-      (empty? tupleseq) result
-      (let [bs (binding-set pattern (first tupleseq))]
-        (if (nil? bs) 
-          (recur (next tupleseq) result)
-          (recur (next tupleseq) (conj result bs)))))))
+  (filter (comp not nil?)
+    (map (partial binding-set pattern) tuples)))
