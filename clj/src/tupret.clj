@@ -1,4 +1,5 @@
-(ns tupret)
+(ns tupret
+  (:require [clojure.core.reducers :as r]))
 
 (defn fresh?
   [pval]
@@ -23,8 +24,8 @@
       ; assoc all the keys whose values are fresh in the pattern to the equivalent value in this tuple
       (reduce #(assoc %1 (fresh-name (get pattern %2)) (get tuple %2)) {} fk))))
 
-
 (defn pattern-matches
   [tuples pattern]
-  (filter (comp not nil?)
-    (map (partial binding-set pattern) tuples)))
+  (r/foldcat
+    (r/filter (comp not nil?)
+      (r/map (partial binding-set pattern) tuples))))
