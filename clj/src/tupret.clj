@@ -32,7 +32,7 @@
 
 
 (defn pattern-matches
-  [pattern tuples]
+  [tuples pattern]
   (loop [ tupleseq tuples
          result [] ]
     (if 
