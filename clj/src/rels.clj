@@ -119,9 +119,10 @@
   (reduce f initial (col-seq r k)))
 
 (defn append
-  "Appends key/values returned from f for each row to the row"
+  "Appends key/values returned from f for each row to the row.  appends may happen in parallel
+  and order of the original r may not be maintained"
   [r f]
-  (map #(merge % (f %)) r))
+  (r/foldcat (r/map #(merge % (f %)) r)))
 
 (defn distinct-rows
   [r]
