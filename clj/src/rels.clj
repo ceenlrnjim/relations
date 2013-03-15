@@ -63,6 +63,15 @@
   [r f]
   (filter f r))
 
+(defn select-by-vals
+  "returns a sequence of maps from the specified relation where each specified key/value pair
+   has the same value in the map"
+  [r & kvs]
+  (select r
+    (fn [t]
+      (let [m (apply hash-map kvs)]
+        (= (select-keys t (keys m)) m)))))
+
 (defn key-rename
   "replaces key ok with key nk in m"
   [m ok nk]
