@@ -1,4 +1,5 @@
 (ns rels
+  (:require [clojure.core.reducers :as r])
   (:require clojure.set))
 
 ;
@@ -61,7 +62,7 @@
 
 (defn select
   [r f]
-  (filter f r))
+    (r/foldcat (r/filter f r)))
 
 (defn select-by-vals
   "returns a sequence of maps from the specified relation where each specified key/value pair
