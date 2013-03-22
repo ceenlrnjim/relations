@@ -2,3 +2,5 @@
 lib
 node_modules
 *.class
+*.o
+*.hi

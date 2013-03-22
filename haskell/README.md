@@ -1,0 +1,1 @@
+Excuse to learn Haskell
