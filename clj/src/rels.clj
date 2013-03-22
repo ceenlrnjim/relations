@@ -1,4 +1,5 @@
 (ns rels
+  (:require [clojure.core.reducers :as r])
   (:require clojure.set))
 
 ;
@@ -61,7 +62,16 @@
 
 (defn select
   [r f]
-  (filter f r))
+    (r/foldcat (r/filter f r)))
+
+(defn select-by-vals
+  "returns a sequence of maps from the specified relation where each specified key/value pair
+   has the same value in the map"
+  [r & kvs]
+  (select r
+    (fn [t]
+      (let [m (apply hash-map kvs)]
+        (= (select-keys t (keys m)) m)))))
 
 (defn key-rename
   "replaces key ok with key nk in m"
@@ -109,9 +119,10 @@
   (reduce f initial (col-seq r k)))
 
 (defn append
-  "Appends key/values returned from f for each row to the row"
+  "Appends key/values returned from f for each row to the row.  appends may happen in parallel
+  and order of the original r may not be maintained"
   [r f]
-  (map #(merge % (f %)) r))
+  (r/foldcat (r/map #(merge % (f %)) r)))
 
 (defn distinct-rows
   [r]
