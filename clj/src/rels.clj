@@ -73,6 +73,15 @@
       (let [m (apply hash-map kvs)]
         (= (select-keys t (keys m)) m)))))
 
+(defn select-single
+  "returns either nil or the first row that satisfies predicate f"
+  ([r f default] 
+    (let [matches (select r f)]
+      (if (empty? matches) default (first matches))))
+  ([r default k v & kvs] 
+    (let [matches (apply select-by-vals r (concat [k v] kvs))]
+      (if (empty? matches) default (first matches)))))
+
 (defn key-rename
   "replaces key ok with key nk in m"
   [m ok nk]
@@ -155,5 +164,18 @@
       (append-row result (apply multi-project-row row projections)))
     (map (fn [_] []) projections)
   r))
+
+(defn denormalize
+  "Converts a number of lines with different values for cols to a single line with a collection
+  containing all values for cols - r is the relation, n is the name for the aggregate property
+  and cols are the list of columns to be collapsed"
+  [r n & cols]
+  (let [keycols (difference (set (keys (first r))) (set cols))
+        grouped (group-by #(select-keys % keycols) r)]
+    ; each unique key is now a record in the relation
+    (map (fn [[k v]]
+           ; convert the value of the new property to just the denormalized fields
+           (assoc k n (map #(select-keys % cols) v)))
+         grouped)))
 
 ; TODO: unjoin, projectInto, projectMultipleInto, flatten, unflatten
