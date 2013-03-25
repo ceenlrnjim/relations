@@ -39,12 +39,14 @@
         s-join-cols (map second conditions)
         ; NB: column names can be different and therefore can't be in the hash
         hashfn (comp hash vals select-keys)
-        r-hashes (reduce #(assoc %1 (hashfn %2 r-join-cols) %2) {} r)]
+        ; using group-by as there may be multiple records that match each s record since join key might not be unique
+        ; key for the row
+        r-hashes (group-by #(hashfn % r-join-cols) r)]
     (reduce
       (fn [result row]
         (let [matching-r (get r-hashes (hashfn row s-join-cols))]
           (if (nil? matching-r) result
-            (conj result (merge matching-r row))))); TODO: need to handle matching keys that aren't part of the join and might have different values
+            (concat result (map #(merge % row) matching-r)))))
       []
       s)))
 
