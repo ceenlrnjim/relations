@@ -180,4 +180,14 @@
            (assoc k n (map #(select-keys % cols) v)))
          grouped)))
 
-; TODO: unjoin, projectInto, projectMultipleInto, flatten, unflatten
+(defn normalize
+  [r k]
+  (let [other-ks (remove #(= % k) (keys (first r)))]
+    (flatten
+      (reduce (fn [rel row]
+                (let [rest-row (select-keys row other-ks)]
+                  (concat rel (map #(merge % rest-row) (get row k)))))
+              []
+              r))))
+
+; TODO: unjoin, projectInto, projectMultipleInto,

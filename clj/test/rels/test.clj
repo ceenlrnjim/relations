@@ -50,5 +50,14 @@
         ps (hash-join p s [= :prodid :prodid])]
     (is (= (count sp) (count ps)))))
 
+(deftest test-normalize
+  (let [data [ {:a 1 :b 1 :c [{:d 11 :e 11} {:d 12 :e 12} {:d 13 :e 13}]}
+               {:a 2 :b 2 :c [{:d 21 :e 21} {:d 22 :e 22} {:d 23 :e 23}]}
+               {:a 3 :b 3 :c [{:d 31 :e 31} {:d 32 :e 32} {:d 33 :e 33}]} ]
+        norm-data (normalize data :c)]
+    (is (nil? (:c (first norm-data))))
+    (is (not (nil? (:d (first norm-data)))))
+    (is (= (count norm-data) 9))))
+
 (run-tests 'rels.test)
   
