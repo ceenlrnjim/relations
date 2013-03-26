@@ -11,10 +11,10 @@
              {:z 3 :d 3112 :e {:ea "xyz" :eb 123}} ])
 
 (deftest test-joins
-  (let [nlj (nested-loop-join data1 data2 [:a :z =])
-        hj (hash-join data1 data2 [:a :z =])
-        j (join data1 data2 [:a :z =])
-        j2 (join data1 data2 [:a :e #(= %1 (:eb %2))])]
+  (let [nlj (nested-loop-join data1 data2 [= :a :z])
+        hj (hash-join data1 data2 [= :a :z])
+        j (join data1 data2 [= :a :z])
+        j2 (join data1 data2 [#(= %1 (:eb %2)) :a :e])]
     (is (= nlj hj j))
     (is (= (count j) 4))
     (is (= (count j2) 3))
@@ -46,8 +46,8 @@
 
 (deftest test-commutative-hash
   (println "Starting commutative test")
-  (let [sp (hash-join s p [:prodid :prodid =])
-        ps (hash-join p s [:prodid :prodid =])]
+  (let [sp (hash-join s p [= :prodid :prodid])
+        ps (hash-join p s [= :prodid :prodid])]
     (is (= (count sp) (count ps)))))
 
 (run-tests 'rels.test)

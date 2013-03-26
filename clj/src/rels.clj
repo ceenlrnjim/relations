@@ -16,7 +16,7 @@
 (defn all-conditions-met
   "returns true if all the conditions specified are met by a and b"
   [conditions a b]
-  (reduce (fn [bool [a_key b_key f]] (and bool (rows-satisfy a_key b_key f a b)))
+  (reduce (fn [bool [f a_key b_key]] (and bool (rows-satisfy a_key b_key f a b)))
           true
           conditions))
 
@@ -25,7 +25,7 @@
   (let [ri (first r)
         si (first s)
         common-keys (clojure.set/intersection (set (keys ri)) (set (keys si)))]
-    (for [k common-keys] [k k =])))
+    (for [k common-keys] [= k k])))
 
 (defn nested-loop-join
   "r and s are relations, conditions is a list of [r_key s_key (fn)]"
@@ -35,8 +35,8 @@
 
 (defn hash-join
   [r s & conditions]
-  (let [r-join-cols (map first conditions)
-        s-join-cols (map second conditions)
+  (let [r-join-cols (map second conditions)
+        s-join-cols (map #(nth % 2) conditions)
         ; NB: column names can be different and therefore can't be in the hash
         hashfn (comp hash vals select-keys)
         ; using group-by as there may be multiple records that match each s record since join key might not be unique
@@ -53,7 +53,7 @@
 (defn join
   [r s & c]
   (let [conditions (if (empty? c) (common-keys-conditions r s) c)]
-    (if (every? #(= = (nth % 2)) conditions)
+    (if (every? #(= = (first %)) conditions)
         (apply hash-join r s conditions)
         (apply nested-loop-join r s conditions))))
 
