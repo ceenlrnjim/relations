@@ -331,6 +331,36 @@ module.exports = (function() {
         return r.map(function(row) { return row[p]; });
     };
 
+    var _query = function(clauses) {
+        // TODO: way to specify something other than natural join
+        var result = clauses.from.reduce(function(r1, r2) {
+            return _join(r1, r2);
+        });
+
+        if (clauses.deriving !== undefined) {
+            result = _appendDerived(result, function(row) {
+                var additions = {};
+                for (prop in clauses.deriving) {
+                    additions[prop] = clauses.deriving[prop](row);
+                }
+                return additions;
+            });
+        }
+
+        if (clauses.where !== undefined) {
+            result = _select(result, function(row) {
+                                        return clauses.where.map(function(fn) {
+                                            return fn(row);
+                                        }).indexOf(false) === -1; });
+        }
+            
+        if (clauses.select !== undefined)
+            result = _project(result, clauses.select);
+
+        return result;
+    }
+
+
     //
     // Object with a prototype of the above functions to allow chaining -
     // Relation object functions assume arguments are Relations as well
@@ -453,5 +483,6 @@ module.exports = (function() {
             projectMultiple: _projectMultiple,
             unjoin: _unjoin,
             columnArray: _columnArray,
+            query: _query,
             Relation: Relation};
 })();
