@@ -1,3 +1,4 @@
+-- TODO: check out  {-# LANGUAGE ExistentialQuantification #-} support for heterogenous lists to define n-tuples
 import qualified Data.Map as Map
 import qualified Data.List as L
 import Data.Monoid
@@ -5,8 +6,15 @@ import Data.Monoid
 --
 -- Generic map versions
 --
-type RelTuple = Map.Map String String
+type RelNum = Num
+data RelVal = Str String
+              | RelNum
+              deriving (Show, Eq, Ord)
+
+type RelTuple = Map.Map String RelVal
 type Relation = [RelTuple]
+
+
 
 project :: Relation -> [String] -> Relation
 project [] _ = []
@@ -15,7 +23,7 @@ project (t:ts) keys = (fst (Map.partitionWithKey (\k _ -> k `elem` keys) t)) : (
 select :: Relation -> (RelTuple -> Bool) -> Relation
 select r f = filter f r
 
-selectWhereKey :: Relation -> String -> String -> Relation
+selectWhereKey :: Relation -> String -> RelVal -> Relation
 selectWhereKey r k v = select r (\m -> (m Map.! k) == v)
 
 -- only supporting a list of columns and equality matching for now, column names must match - adding rename to support
@@ -62,11 +70,11 @@ data Person = Person { personName :: String,
 data Dept = Dept { deptName :: String,
                    deptId :: Int } deriving (Show)
 
-main = let r = [Map.fromList [("a","1"),("b","11"),("c","111")], 
-                Map.fromList [("a","2"),("b","22"),("c","222")], 
-                Map.fromList [("a","3"),("b","33"),("c","333")]]
-           s = [Map.fromList [("a","1"),("d","1111"),("e","11111")],
-                Map.fromList [("a","2"),("d","2222"),("e","22222")]]
+main = let r = [Map.fromList [("a", Str "1"),("b", Str "11"),("c", Str "111")], 
+                Map.fromList [("a", Str "2"),("b", Str "22"),("c", Str "222")], 
+                Map.fromList [("a", Str "3"),("b", Str "33"),("c", Str "333")]]
+           s = [Map.fromList [("a", Str "1"),("d", Str "1111"),("e", Str "11111")],
+                Map.fromList [("a", Str "2"),("d", Str "2222"),("e", Str "22222")]]
            people = [(Person "Jim" 1 1),(Person "Jane" 2 1),(Person "John" 3 2),(Person "Joan" 4 3)]
            depts = [(Dept "IT" 1),(Dept "Sales" 2), (Dept "Wet Ops" 3), (Dept "Security" 4)]
     in 
@@ -74,7 +82,7 @@ main = let r = [Map.fromList [("a","1"),("b","11"),("c","111")],
         putStrLn "Projection"
         putStrLn $ show $ project r ["a","c"]
         putStrLn "Selection"
-        putStrLn $ show $ selectWhereKey r "a" "2"
+        putStrLn $ show $ selectWhereKey r "a" $ Str "2"
         putStrLn "Simple Join"
         putStrLn $ show $ join r s ["a"]
         putStrLn "Cartesian Product"
