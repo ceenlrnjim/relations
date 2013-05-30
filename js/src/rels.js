@@ -74,18 +74,19 @@ module.exports = (function() {
             // TODO: need to consider the impact of hasOwnProperty versus prototype inherited properties
             // - I probably want some ability to use tuples that are objects with prototype inherited properties
             if (r.hasOwnProperty(prop)) {
-                if (s.hasOwnProperty(prop)) {
-                    result[prop + "_l"] = r[prop];
-                } else {
+                // TODO: changing the name of properties causes problems for joining
+                //if (s.hasOwnProperty(prop)) {
+                    //result[prop + "_l"] = r[prop];
+                //} else {
                     result[prop] = r[prop];
-                }
+                //}
             }
             if (s.hasOwnProperty(prop)) {
-                if (r.hasOwnProperty(prop)) {
-                    result[prop + "_r"] = s[prop];
-                } else {
+                //if (r.hasOwnProperty(prop)) {
+                    //result[prop + "_r"] = s[prop];
+                //} else {
                     result[prop] = s[prop];
-                }
+                //}
             }
         });
 
@@ -111,6 +112,7 @@ module.exports = (function() {
         // TODO: starting with nested loop join - look at improving efficiency with another algorithm (sort-merge join, hash-join, etc.)
         var result = [];
         var attributes = _analyzeJoinColumns(r,s,c);
+
         r.forEach(function(ri) {
             s.forEach(function(sj) {
                 var matches = true;
@@ -333,9 +335,34 @@ module.exports = (function() {
 
     var _query = function(clauses) {
         // TODO: way to specify something other than natural join
-        var result = clauses.from.reduce(function(r1, r2) {
-            return _join(r1, r2);
-        });
+        //var result = clauses.from.reduce(function(r1, r2) {
+            //return _join(r1, r2);
+        //});
+
+        var result,joinspec, t2, t1c, t2c, fn;
+        
+        // multiple from(s) are natural join, otherwise use join clause
+        if (clauses.from.length > 1) {
+            result = clauses.from.reduce(function(r1, r2) {
+                return _join(r1, r2);
+            });
+        } else {
+            result = clauses.from[0];
+        }
+
+        if (clauses.join !== undefined) {
+            for (var i=0;i<clauses.join.length;i++) {
+                joinspec = clauses.join[i];
+                t2 = joinspec[0];
+                // TODO: ?_l/?_r renaming will cause problems here
+                t1c = joinspec[1];
+                t2c = joinspec[2];
+                fn = joinspec.length > 3 ? joinspec[3] : function(a,b) { return a === b; };
+
+                debugger;
+                result = _join(result, t2, [[t1c, t2c, fn]]);
+            }
+        }
 
         if (clauses.deriving !== undefined) {
             result = _appendDerived(result, function(row) {
@@ -465,6 +492,11 @@ module.exports = (function() {
         return function(o) { return o[name] === value;};
     }
 
+    // TODO: need to rename this or function above
+    var _propsEq = function(p1, p2) {
+        return function(row) { return row[p1] === row[p2]; }
+    }
+
     return {join: _join,
             project: _project,
             select: _select,
@@ -477,6 +509,7 @@ module.exports = (function() {
             difference: _difference,
             aggregate: _aggregate,
             propEq: _propEq,
+            propsEq: _propsEq,
             appendDerived: _appendDerived,
             divide: _divide,
             distinct: _distinct,
