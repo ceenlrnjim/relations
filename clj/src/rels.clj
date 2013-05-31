@@ -51,6 +51,7 @@
       s)))
 
 (defn join
+  "r and s are relations (sequence of maps), c is a sequence of 2 or 3 item sequences with (op colR colS) or (colR colS)"
   [r s & c]
   (let [conditions (if (empty? c) (common-keys-conditions r s) c)]
     (if (every? #(= = (first %)) conditions)

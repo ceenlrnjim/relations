@@ -13,7 +13,9 @@
       (fn [r [k f]]
         ; if the clause wasn't specified, do run the function - skip this step
         (let [clause-val (get clauses k)]
-          (if clause-val (f r (get clauses k)) r)))
+          (if clause-val 
+              (f r (get clauses k))
+            r)))
       []
       steps)))
 
@@ -33,7 +35,16 @@
 
 (defn implicit-join
   [rs]
-  (reduce #(join %1 %2) rs))
+  (if (seq? (next rs))
+      (reduce #(join %1 %2) rs)
+      (first rs)))
+
+(defn explicit-join
+  [r js]    
+  (if (seq? js) 
+    ; TODO: optional 'op'
+    (let [[t2 op t1c t2c] (first js)]
+      (recur (join r t2 [[op t1c t2c]]) (next js)))))
 
 (defn query
   "Combines various relational functions into something resembling a SQL query.
@@ -47,6 +58,7 @@
     (apply-if-specified clauses
       ; either natural join, or cartesian product and then filter in :where - simple, but potentially slow and memory inefficient
       :from (fn [_ rs] (implicit-join rs))
+      :join (fn [r js] (explicit-join r js))
       :deriving (fn [r ps] (multi-append r ps))
       :where (fn [r fs] (select r (fn [row] (every? identity (map #(% row) fs)))))
       :order-by (fn [r cols] (sort-by (fn [row] (reduce #(conj %1 (get row %2)) [] cols)) r))

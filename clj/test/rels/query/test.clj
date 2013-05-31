@@ -1,5 +1,5 @@
 (ns rels.query.test
-  (:use [rels.query])
+  (:use [relsquery])
   (:use [clojure.test]))
 
 (def data1 [
@@ -34,6 +34,7 @@
 
 (deftest join-project
   (let [result (query :select [:c :d] :from [data1 data2])]
+    (println result)
     (is (= (count result) 10))
     (is (every? #(not (contains? % :a)) result))
     (is (every? #(not (contains? % :b)) result))
@@ -55,10 +56,12 @@
     (is (= (:d record) 12))))
 
 (deftest join-derive
+  (println "join-derive -------------------------")
   (let [result (query :select [:a :d :q]
                       :from [data1 data2]
-                      :derive [[:q #(+ (:d %) (:c %))]]
-                      :where [#(even? (:q %))])]
+                      :deriving [[:q #(+ (:d %) (:c %))]]
+                      :where [#(even? (:q %))]
+                      )]
     (doseq [i result] (println i))
     ))
                 
@@ -66,5 +69,10 @@
   (let [result (query :from [data1 data2 data3])]
     ;(doseq [i result] (println i))
     ))
+
+(deftest test-explicit-join
+  (let [result (query :from [data1] :join [[data2 = :a :a], [data3 = :e :e]])]
+    (doseq [i result] (println i))))
+
 
 (run-tests 'rels.query.test)
