@@ -98,3 +98,36 @@
 
 ; TODO: antijoin
 ; TODO: division
+
+
+;
+; ---------------------------------------------------------------------------
+; Expression tree stuff
+; ---------------------------------------------------------------------------
+; Basic format [<op-keyword> & exprs]
+; expressions are vectors, relations are sets
+; TODO: may need to totally re-work to support the optimization stuff
+
+(def expr? vector?)
+
+(defn has-sub-exprs? [exprs]
+  (seq (filter expr? exprs)))
+
+; by the time this is called, the sub-expressions have been evaluated
+(defmulti eval-expr (fn [op args] op))
+(defmethod eval-expr :union [_ [r s]] (rel-union r s))
+(defmethod eval-expr :diff [_ [r s]] (rel-diff r s))
+(defmethod eval-expr :intersect [_ [r s]] (rel-intersect r s))
+(defmethod eval-expr :product [_ [r s]] (cartprod r s))
+(defmethod eval-expr :project [_ [r ks]] (project r ks))
+(defmethod eval-expr :select [_ [r prop]] (select (quote prop) r))
+
+; This allows us to process a syntax tree - the next step will to be processing syntax into this tree
+; TODO: does this need to be a macro because some of the operations are macros?
+(defn query [q]
+  (if (expr? q)
+        (let [[op & exprs] q]
+          (eval-expr op (map query exprs)))
+        q))
+
+(println (query [:select #{{:a 1}{:a 2}{:a 3}} '(> :a 2)]))
