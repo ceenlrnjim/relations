@@ -62,10 +62,8 @@
     (let [modified-exp (tree-replace-keywords prop rtuple)]
       (eval modified-exp))))
       
-
-(defmacro proposition [p]
-  `(compile-proposition p))
-
-
 ; TODO: support arbitrary functions?
-(defn selection [r prop]
+(defmacro select [prop r]
+  `(filter (compile-proposition (quote ~prop)) ~r))
+
+;(select (= :a 1) #{{:a 1 :b 2} {:a 2 :b 4}})
