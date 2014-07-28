@@ -71,8 +71,8 @@
 ;  `(set (filter (compile-proposition (quote ~prop)) ~r)))
 
 ; removing the macro as this is an internal function and we don't want nested macro processing
-;(select '(= :a 1) #{{:a 1 :b 2} {:a 2 :b 4}})
-(defn select [prop r]
+;(restrict '(= :a 1) #{{:a 1 :b 2} {:a 2 :b 4}})
+(defn restrict [prop r]
   (set (filter (compile-proposition prop) r)))
 
 (defn rename [r from to] ; TODO: add ability to rename multiples
@@ -81,7 +81,7 @@
   (set (map #(dissoc (assoc % to (get % from)) from) r)))
 
 (defn- natural-eq? [rtup stup]
-  (let [shared (sets/intersection (attrs rtup) (attrs stup))]
+  (let [shared (sets/intersection (set (keys rtup)) (set (keys stup)))]
     (if (empty? shared) true ; degrade to cartesian product if there are no shared keys
       (every? #(= (get rtup %) (get stup %)) shared))))
 
@@ -97,10 +97,10 @@
 ; TODO: since this is a combination of X and σ, this could be expanded in the expression instead of as another function
 ;(theta-join #{{:a 1 :b 1}} #{{:c 1 :d 2}} '(= :a :c))
 ;(defmacro theta-join [r s prop]
-;  `(select ~prop (cartprod ~r ~s)))
+;  `(restrict ~prop (cartprod ~r ~s)))
 ; note - need to manually quote prop
 (defn theta-join [r s prop]
-  (select prop (cartprod r s)))
+  (restrict prop (cartprod r s)))
 
 ; this is a derived operation, don't need primitive function
 (defn semijoin [r s]
@@ -131,7 +131,7 @@
 (defmethod eval-expr :intersect [_ [r s]] (rel-intersect r s))
 (defmethod eval-expr :product [_ [r s]] (cartprod r s))
 (defmethod eval-expr :project [_ [r ks]] (project r ks))
-(defmethod eval-expr :select [_ [prop r]] (select prop r))
+(defmethod eval-expr :restrict [_ [prop r]] (restrict prop r))
 (defmethod eval-expr :rename [_ [r from to]] (rename r from to))
 (defmethod eval-expr :natjoin [_ [r s]] (natjoin r s))
 (defmethod eval-expr :join [_ [r s prop]] (theta-join r s prop))
@@ -148,4 +148,37 @@
         (eval-expr op (map query* exprs)))
       q))
 
-(println (query* [:project [:join #{{:a 1 :b 1} {:a 2 :b 2}} #{{:c 1 :d 100} {:c 2 :d 200}} '(= :a :c)] #{:b :d}]))
+; -----------------------------------------------------------------------------
+; Actual expression generating stuff
+; The Query language
+
+; [x y z] = [:product [:product x y] z]
+(defn build-joins [rs]
+  ; TODO: support single value without vector
+  (if (seq (rest rs)) ; more than one value
+    (reduce (fn [a v] [:natjoin a v]) rs) ; default to natural join (which defaults to cross product if no shared attributes)
+    (first rs)))
+
+
+; start with simple cartesian product version
+; TODO: sql like syntax or LINQ like syntax?
+;(select [:a :b :c :d :e]
+; from [r s]
+; where (= :a :c))
+; TODO: remove "select *" nodes from the expression tree
+(defmacro select 
+  ;([attrs from rels] & more] ()) ; TODO
+  ([ats _ rels _ conds]
+   `(let [expr# [:project 
+                [:restrict 
+                  (quote ~conds)
+                  (build-joins ~rels)]
+                (set ~ats)]]
+     ;(println expr#)
+     (query* expr#))))
+
+(def r #{{:a 1 :b 10 :c 100}{:a 2 :b 2 :c 200}{:a 3 :b 30 :c 300}})
+(def s #{{:d 1 :name "foo"}{:d 2 :name "bar"}})
+(def q #{{:d 1 :age 27}{:d 2 :age 506}})
+(println (select [:b :c :name :age] from [r s q] where (= :d :a)))
+
