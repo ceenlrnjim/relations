@@ -80,7 +80,7 @@
          (not (contains? (attrs r) to))]} ; make sure "to" is not a valid key
   (set (map #(dissoc (assoc % to (get % from)) from) r)))
 
-(defn natural-eq? [rtup stup]
+(defn- natural-eq? [rtup stup]
   (let [shared (sets/intersection (attrs rtup) (attrs stup))]
     (if (empty? shared) true ; degrade to cartesian product if there are no shared keys
       (every? #(= (get rtup %) (get stup %)) shared))))
@@ -98,6 +98,7 @@
 ;(theta-join #{{:a 1 :b 1}} #{{:c 1 :d 2}} '(= :a :c))
 ;(defmacro theta-join [r s prop]
 ;  `(select ~prop (cartprod ~r ~s)))
+; note - need to manually quote prop
 (defn theta-join [r s prop]
   (select prop (cartprod r s)))
 
@@ -132,17 +133,19 @@
 (defmethod eval-expr :project [_ [r ks]] (project r ks))
 (defmethod eval-expr :select [_ [prop r]] (select prop r))
 (defmethod eval-expr :rename [_ [r from to]] (rename r from to))
+(defmethod eval-expr :natjoin [_ [r s]] (natjoin r s))
+(defmethod eval-expr :join [_ [r s prop]] (theta-join r s prop))
+(defmethod eval-expr :semijoin [_ [r s]] (semijoin r s))
 
 
 ; This allows us to process a syntax tree - the next step will to be processing syntax into this tree
 ; note manual quoting is still required since we haven't put in a macro yet
-; TODO: does this need to be a macro because some of the operations are macros?
-(defn query* [q]
-   (if (expr? q)
-          (let [[op & exprs] q]
-            (eval-expr op (map query* exprs)))
-          q))
+(defn query* 
+  "evaluate an expression tree for a query"
+  [q]
+  (if (expr? q)
+      (let [[op & exprs] q]
+        (eval-expr op (map query* exprs)))
+      q))
 
-(println (query* [:select '(= :foo 1) [:rename #{{:a 1}{:a 2}{:a 3}} :a :foo]]))
-;(println (select '(> :a 2) #{{:a 1}{:a 2}{:a 3}} ))
-;(println (theta-join #{{:a 1 :b 1}} #{{:c 1 :d 2}} '(= :a :c)))
+(println (query* [:project [:join #{{:a 1 :b 1} {:a 2 :b 2}} #{{:c 1 :d 100} {:c 2 :d 200}} '(= :a :c)] #{:b :d}]))
