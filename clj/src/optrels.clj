@@ -60,13 +60,20 @@
   ; first replace all keywords with values from rtuple if they exist, then convert it into a function
   (fn [rtuple] 
     (let [modified-exp (tree-replace-keywords prop rtuple)]
+      ;(println "Compiled to: " modified-exp)
       (eval modified-exp))))
       
 ; TODO: the problem here will be that we want to know what attributes are used in this query when evaluating?
 ; Should that all happen before this function gets called during the query expression processing?
 ;(select (= :a 1) #{{:a 1 :b 2} {:a 2 :b 4}})
-(defmacro select [prop r]
-  `(set (filter (compile-proposition (quote ~prop)) ~r)))
+;
+;(defmacro select [prop r]
+;  `(set (filter (compile-proposition (quote ~prop)) ~r)))
+
+; removing the macro as this is an internal function and we don't want nested macro processing
+;(select '(= :a 1) #{{:a 1 :b 2} {:a 2 :b 4}})
+(defn select [prop r]
+  (set (filter (compile-proposition prop) r)))
 
 (defn rename [r from to] ; TODO: add ability to rename multiples
   {:pre [(contains? (attrs r) from) ; make sure from is a valid key
@@ -88,9 +95,11 @@
   (set (for [x r y s :when (natural-eq? x y)] (merge x y))))
 
 ; TODO: since this is a combination of X and σ, this could be expanded in the expression instead of as another function
-;(theta-join #{{:a 1 :b 1}} #{{:c 1 :d 2}} (= :a :c))
-(defmacro theta-join [r s prop]
-  `(select ~prop (cartprod ~r ~s)))
+;(theta-join #{{:a 1 :b 1}} #{{:c 1 :d 2}} '(= :a :c))
+;(defmacro theta-join [r s prop]
+;  `(select ~prop (cartprod ~r ~s)))
+(defn theta-join [r s prop]
+  (select prop (cartprod r s)))
 
 ; this is a derived operation, don't need primitive function
 (defn semijoin [r s]
@@ -114,20 +123,26 @@
   (seq (filter expr? exprs)))
 
 ; by the time this is called, the sub-expressions have been evaluated
+; TODO: rationalize order of arguments
 (defmulti eval-expr (fn [op args] op))
 (defmethod eval-expr :union [_ [r s]] (rel-union r s))
 (defmethod eval-expr :diff [_ [r s]] (rel-diff r s))
 (defmethod eval-expr :intersect [_ [r s]] (rel-intersect r s))
 (defmethod eval-expr :product [_ [r s]] (cartprod r s))
 (defmethod eval-expr :project [_ [r ks]] (project r ks))
-(defmethod eval-expr :select [_ [r prop]] (select (quote prop) r))
+(defmethod eval-expr :select [_ [prop r]] (select prop r))
+(defmethod eval-expr :rename [_ [r from to]] (rename r from to))
+
 
 ; This allows us to process a syntax tree - the next step will to be processing syntax into this tree
+; note manual quoting is still required since we haven't put in a macro yet
 ; TODO: does this need to be a macro because some of the operations are macros?
-(defn query [q]
-  (if (expr? q)
-        (let [[op & exprs] q]
-          (eval-expr op (map query exprs)))
-        q))
+(defn query* [q]
+   (if (expr? q)
+          (let [[op & exprs] q]
+            (eval-expr op (map query* exprs)))
+          q))
 
-(println (query [:select #{{:a 1}{:a 2}{:a 3}} '(> :a 2)]))
+(println (query* [:select '(= :foo 1) [:rename #{{:a 1}{:a 2}{:a 3}} :a :foo]]))
+;(println (select '(> :a 2) #{{:a 1}{:a 2}{:a 3}} ))
+;(println (theta-join #{{:a 1 :b 1}} #{{:c 1 :d 2}} '(= :a :c)))
