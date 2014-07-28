@@ -62,8 +62,32 @@
     (let [modified-exp (tree-replace-keywords prop rtuple)]
       (eval modified-exp))))
       
-; TODO: support arbitrary functions?
-(defmacro select [prop r]
-  `(filter (compile-proposition (quote ~prop)) ~r))
-
+; TODO: the problem here will be that we want to know what attributes are used in this query when evaluating?
+; Should that all happen before this function gets called during the query expression processing?
 ;(select (= :a 1) #{{:a 1 :b 2} {:a 2 :b 4}})
+(defmacro select [prop r]
+  `(set (filter (compile-proposition (quote ~prop)) ~r)))
+
+(defn rename [r from to] ; TODO: add ability to rename multiples
+  {:pre [(contains? (attrs r) from) ; make sure from is a valid key
+         (not (contains? (attrs r) to))]} ; make sure "to" is not a valid key
+  (set (map #(dissoc (assoc % to (get % from)) from) r)))
+
+(defn natural-eq? [rtup stup]
+  (let [shared (sets/intersection (attrs rtup) (attrs stup))]
+    (if (empty? shared) true ; degrade to cartesian product if there are no shared keys
+      (every? #(= (get rtup %) (get stup %)) shared))))
+
+(defn natjoin
+  "Natural join -values of shared keys are equal"
+  [r s]
+  ; starting with nested loop join
+  ; TODO: implement smarter joins
+  ; TODO: implement dumber join - use algebra primitives to re-create
+  ; TODO: also don't need to repeatedly determine the shared attributes
+  (set (for [x r y s :when (natural-eq? x y)] (merge x y))))
+
+; TODO: since this is a combination of X and σ, this could be expanded in the expression instead of as another function
+;(theta-join #{{:a 1 :b 1}} #{{:c 1 :d 2}} (= :a :c))
+(defmacro theta-join [r s prop]
+  `(select ~prop (cartprod ~r ~s)))
