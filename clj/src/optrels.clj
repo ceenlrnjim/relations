@@ -91,3 +91,10 @@
 ;(theta-join #{{:a 1 :b 1}} #{{:c 1 :d 2}} (= :a :c))
 (defmacro theta-join [r s prop]
   `(select ~prop (cartprod ~r ~s)))
+
+; this is a derived operation, don't need primitive function
+(defn semijoin [r s]
+  (project (natjoin r s) (attrs r)))
+
+; TODO: antijoin
+; TODO: division
