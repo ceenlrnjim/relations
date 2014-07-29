@@ -123,9 +123,6 @@
 
 (def expr? vector?)
 
-(defn has-sub-exprs? [exprs]
-  (seq (filter expr? exprs)))
-
 ; by the time this is called, the sub-expressions have been evaluated
 ; TODO: rationalize order of arguments
 (defmulti eval-expr (fn [op args] op))
@@ -166,9 +163,7 @@
 
 
 ; start with simple cartesian product version
-; TODO: remove "select *" nodes from the expression tree
-;
-; TODO: going to need rename for unions etc. to work
+
 ; select :a as :d in macro
 ; (expand-select [[:a :d] :b :c] ... in function
 (defn expand-renames
@@ -186,13 +181,16 @@
 ; Moves logic on building the expression tree out of the macro
 (defn expand-select
   ([ats rels] 
-    (expand-renames 
-      [:project (build-joins rels) (set ats)]))
+    (expand-select ats rels nil))
   ([ats rels prop] 
-    (expand-renames
-      [:project 
-        [:restrict prop (build-joins rels)] 
-        (set ats)])))
+    (let [j (build-joins rels)
+          project-target (if (nil? prop) j [:restrict prop j])]
+    (if (and (empty? (rest ats)) (= (first ats) '*)) 
+      project-target
+      (expand-renames
+        [:project 
+          project-target
+          (set ats)])))))
 
 (defn convert-rename-syntax [ats]
   (if (seq ats)
@@ -208,11 +206,9 @@
 (defmacro select [& details]
   (let [[ats# rem1#] (split-with #(not= % 'from) details)
         renamed-ats# (convert-rename-syntax ats#)
-        [rels# rem2#] (split-with #(not= % 'where) (rest rem1#))] ; drop the 'from and take until "where" or the end
-    (if (empty? rem2#) ; optional where clause
-      (expand-select renamed-ats# rels#)
-      (let [prop# (second rem2#)]; drop 'where placeholder
-        (expand-select renamed-ats# rels# `(quote ~prop#))))))
+        [rels# rem2#] (split-with #(not= % 'where) (rest rem1#)) ; drop the 'from and take until "where" or the end
+        prop# (second rem2#)]
+      (expand-select renamed-ats# rels# (if (nil? prop#) nil `(quote ~prop#)))))
   
 
 ; start by generating the expression tree - TODO: add query* when tree is correct
