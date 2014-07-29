@@ -164,24 +164,7 @@
 
 
 ; start with simple cartesian product version
-; TODO: sql like syntax or LINQ like syntax?
-;(select [:a :b :c :d :e]
-; from [r s]
-; where (= :a :c))
 ; TODO: remove "select *" nodes from the expression tree
-(comment
-(defmacro select 
-  ;([attrs from rels] & more] ()) ; TODO
-  ([ats _ rels _ conds]
-   `(let [expr# [:project 
-                [:restrict 
-                  (quote ~conds)
-                  (build-joins ~rels)]
-                (set ~ats)]]
-     ;(println expr#)
-     ;(query* expr#))))
-     expr#)))
-)
 
 ; Moves logic on building the expression tree out of the macro
 (defn expand-select
@@ -193,6 +176,7 @@
 ; This version doesn't require selected attributes and relations to be in vectors - is this better?
 ; probably need real parsing here
 ; select :a :b :c from x y where (= :a :b)
+; TODO: going to need rename for unions etc. to work
 (defmacro select [& details]
   (let [[ats# rem1#] (split-with #(not= % 'from) details)
         [rels# rem2#] (split-with #(not= % 'where) (rest rem1#))] ; drop the 'from and take until "where" or the end
@@ -208,13 +192,21 @@
 ;        (select []...)
 ;        minus
 ;        (select []...))
-;(defmacro query 
-;  ([sel] 
-  ; I think the first thing has to always be a select
-  ; and if there is more than one expression, they must be set combinators in between
-;  ([sel setop sel2 & pairs]
-;    (reduce (fn [a# v#] )
-;  `(query* 
+(defn expand-query
+  ([sel] sel)
+  ; Note: converting op to keyword in the macro - should it be here?
+  ([sel1 op sel2] [op sel1 sel2])
+  ([sel1 op sel2 & pairs] 
+    {:pre [(even? (count pairs))]}
+    (loop [remaining-pairs pairs
+           expr [op sel1 sel2]]
+      (if (seq remaining-pairs)
+          (let [[op rel] (take 2 remaining-pairs)]
+            (recur (drop 2 remaining-pairs) [op expr rel]))
+          expr))))
+
+
+;(defmacro query [& body]
 
 (def r #{{:a 1 :b 10 :c 100}{:a 2 :b 2 :c 200}{:a 3 :b 30 :c 300}})
 (def s #{{:d 1 :name "foo"}{:d 2 :name "bar"}})
