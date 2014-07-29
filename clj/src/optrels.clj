@@ -4,7 +4,8 @@
 
 ; Note - don't support getting attributes for empty relations
 (defn attrs [r]
-  {:pre [(seq r)]}
+  {:pre [(seq r) ; not empty
+         (map? (first r))]} ; containg maps
   (set (keys (first r))))
 
 (defn union-compatible? [r s]
@@ -37,8 +38,9 @@
   (set (for [x r y s] (merge x y))))
 
 (defn project [r ks]
-  {:pre [(empty? (sets/difference ks (attrs r)))]} ; all ks are valid columns in r
-  (set (map #(select-keys % ks) r)))
+  {:pre [(or (empty? r) (empty? (sets/difference ks (attrs r))))]} ; all ks are valid columns in r or r is empty (can't determine attrs)
+  (if (empty? r) #{}
+    (set (map #(select-keys % ks) r))))
 
 ; stolen from http://www.ibm.com/developerworks/library/j-treevisit/
 (defn- tree-edit [zipper matcher editor]
@@ -115,6 +117,7 @@
 ; Expression tree stuff
 ; ---------------------------------------------------------------------------
 ; Basic format [<op-keyword> & exprs]
+; TODO: may want access to the attribute keywords in the syntax tree for optimization
 ; expressions are vectors, relations are sets
 ; TODO: may need to totally re-work to support the optimization stuff
 
@@ -166,6 +169,7 @@
 ; from [r s]
 ; where (= :a :c))
 ; TODO: remove "select *" nodes from the expression tree
+(comment
 (defmacro select 
   ;([attrs from rels] & more] ()) ; TODO
   ([ats _ rels _ conds]
@@ -175,10 +179,50 @@
                   (build-joins ~rels)]
                 (set ~ats)]]
      ;(println expr#)
-     (query* expr#))))
+     ;(query* expr#))))
+     expr#)))
+)
+
+; This version doesn't require selected attributes and relations to be in vectors - is this better?
+; probably need real parsing here
+(defmacro select [& details]
+  (let [[ats# rem1#] (split-with #(not= % 'from) details)
+        [rels# rem2#] (split-with #(not= % 'where) (rest rem1#)) ; drop the 'from and take until "where" or the end
+        ; TODO: optional where
+        prop# (second rem2#)
+        expr# [:project
+                [:restrict
+                  `(quote ~prop#) ; ?
+                  (build-joins rels#)]
+                (set ats#)]]
+     ;(println expr#)
+     ;(query* expr#)))
+     expr#))
+    
+  
+
+; start by generating the expression tree - TODO: add query* when tree is correct
+; (query (select []...)
+;        union
+;        (select []...)
+;        minus
+;        (select []...))
+;(defmacro query 
+;  ([sel] 
+  ; I think the first thing has to always be a select
+  ; and if there is more than one expression, they must be set combinators in between
+;  ([sel setop sel2 & pairs]
+;    (reduce (fn [a# v#] )
+;  `(query* 
 
 (def r #{{:a 1 :b 10 :c 100}{:a 2 :b 2 :c 200}{:a 3 :b 30 :c 300}})
 (def s #{{:d 1 :name "foo"}{:d 2 :name "bar"}})
 (def q #{{:d 1 :age 27}{:d 2 :age 506}})
-(println (select [:b :c :name :age] from [r s q] where (= :d :a)))
+;(println (select [:b :c :name :age] from [r s q] where (= :d :a)))
+(let [expr (select :b :c :name :age from r s q where (= :d :a))]
+  (println "----------------------------------------------------------------")
+  (println "Expression:")
+  (println expr)
+  (println "Evals To :: ")
+  (println (query* expr)))
 
