@@ -186,7 +186,6 @@
 ; Moves logic on building the expression tree out of the macro
 (defn expand-select
   ([ats rels] 
-    (println ats)
     (expand-renames 
       [:project (build-joins rels) (set ats)]))
   ([ats rels prop] 
@@ -252,9 +251,5 @@
   (println "Evals To :: ")
   (println (query* expr)))
 
-(println (expand-query (select :a :b :c from r) :union (select :d :d :age from q)))
-(println (query (select :a :b :c from r) union (select :d :d :age from q)))
+(println (query (select :a :b from r) union (select :d as :a :age as :b from q)))
 )
-
-(println (expand-select [:a :newa :b :c :newc] [r]))
-(println (select [:a :newa] [:b :newb] from r))
