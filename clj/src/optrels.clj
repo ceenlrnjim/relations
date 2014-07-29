@@ -205,12 +205,14 @@
             (recur (drop 2 remaining-pairs) [op expr rel]))
           expr))))
 
-
-;(defmacro query [& body]
+(defmacro query [& body]
+  (let [kw-converted (map #(if (not (list? %)) (keyword %) %) body)]
+    (list query* (concat (list expand-query) kw-converted))))
 
 (def r #{{:a 1 :b 10 :c 100}{:a 2 :b 2 :c 200}{:a 3 :b 30 :c 300}})
 (def s #{{:d 1 :name "foo"}{:d 2 :name "bar"}})
 (def q #{{:d 1 :age 27}{:d 2 :age 506}})
+(comment
 ;(println (select [:b :c :name :age] from [r s q] where (= :d :a)))
 (let [expr (select :b :c :name :age from r s q where (= :d :a))]
 ;(let [expr (expand-select [:b :c :name :age] [r s q] '(= :d :a))]
@@ -220,3 +222,6 @@
   (println "Evals To :: ")
   (println (query* expr)))
 
+(println (expand-query (select :a :b :c from r) :union (select :d :d :age from q)))
+(println (query (select :a :b :c from r) union (select :d :d :age from q)))
+)
