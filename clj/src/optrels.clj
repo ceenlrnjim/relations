@@ -165,18 +165,36 @@
 
 ; start with simple cartesian product version
 ; TODO: remove "select *" nodes from the expression tree
+;
+; TODO: going to need rename for unions etc. to work
+; select :a as :d in macro
+; (expand-select [[:a :d] :b :c] ... in function
+(defn expand-renames
+  "operates on project expression"
+  [expr] 
+  (let [[op rel ks] expr
+        simplified-ks (map #(if (sequential? %) (first %) %) ks)]
+    (loop [renames (filter sequential? ks)
+           result [op rel simplified-ks]]
+      (if (seq renames)
+        (let [[from to] (first renames)]
+          (recur (rest renames) [:rename result from to]))
+        result))))
 
 ; Moves logic on building the expression tree out of the macro
 (defn expand-select
-  ([ats rels] [:project (build-joins rels) (set ats)])
-  ([ats rels prop] [:project 
-                      [:restrict prop (build-joins rels)] 
-                      (set ats)]))
+  ([ats rels] 
+    (expand-renames 
+      [:project (build-joins rels) (set ats)]))
+  ([ats rels prop] 
+    (expand-renames
+      [:project 
+        [:restrict prop (build-joins rels)] 
+        (set ats)])))
 
 ; This version doesn't require selected attributes and relations to be in vectors - is this better?
 ; probably need real parsing here
 ; select :a :b :c from x y where (= :a :b)
-; TODO: going to need rename for unions etc. to work
 (defmacro select [& details]
   (let [[ats# rem1#] (split-with #(not= % 'from) details)
         [rels# rem2#] (split-with #(not= % 'where) (rest rem1#))] ; drop the 'from and take until "where" or the end
@@ -225,3 +243,5 @@
 (println (expand-query (select :a :b :c from r) :union (select :d :d :age from q)))
 (println (query (select :a :b :c from r) union (select :d :d :age from q)))
 )
+
+(println (expand-select [[:a :newa] :b [:c :newc]] [r]))
