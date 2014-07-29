@@ -156,7 +156,6 @@
 
 ; [x y z] = [:product [:product x y] z]
 (defn build-joins [rs]
-  ; TODO: support single value without vector
   (if (seq (rest rs)) ; more than one value
     (reduce (fn [a v] [:natjoin a v]) rs) ; default to natural join (which defaults to cross product if no shared attributes)
     (first rs)))
@@ -211,7 +210,7 @@
       (expand-select renamed-ats# rels# (if (nil? prop#) nil `(quote ~prop#)))))
   
 
-; start by generating the expression tree - TODO: add query* when tree is correct
+; start by generating the expression tree
 ; (query (select []...)
 ;        union
 ;        (select []...)
