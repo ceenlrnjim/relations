@@ -154,6 +154,8 @@
 ; -----------------------------------------------------------------------------
 ; Actual expression generating stuff
 ; The Query language
+; Shooting for a programmatic (non-macro) version and a human (macro) interface
+; This is all pretty dodgy and should make use of an actual parser
 
 ; [x y z] = [:product [:product x y] z]
 (defn build-joins [rs]
@@ -173,7 +175,7 @@
   "operates on project expression"
   [expr] 
   (let [[op rel ks] expr
-        simplified-ks (map #(if (sequential? %) (first %) %) ks)]
+        simplified-ks (set (map #(if (sequential? %) (first %) %) ks))]
     (loop [renames (filter sequential? ks)
            result [op rel simplified-ks]]
       (if (seq renames)
@@ -184,6 +186,7 @@
 ; Moves logic on building the expression tree out of the macro
 (defn expand-select
   ([ats rels] 
+    (println ats)
     (expand-renames 
       [:project (build-joins rels) (set ats)]))
   ([ats rels prop] 
@@ -192,16 +195,25 @@
         [:restrict prop (build-joins rels)] 
         (set ats)])))
 
+(defn convert-rename-syntax [ats]
+  (if (seq ats)
+    (let [[n as alias & more] ats]
+      (if (= as 'as)
+        (cons [n alias] (convert-rename-syntax more))
+        (cons n (convert-rename-syntax (rest ats)))))
+    []))
+
 ; This version doesn't require selected attributes and relations to be in vectors - is this better?
 ; probably need real parsing here
 ; select :a :b :c from x y where (= :a :b)
 (defmacro select [& details]
   (let [[ats# rem1#] (split-with #(not= % 'from) details)
+        renamed-ats# (convert-rename-syntax ats#)
         [rels# rem2#] (split-with #(not= % 'where) (rest rem1#))] ; drop the 'from and take until "where" or the end
-    (if (empty? rem2#)
-      (expand-select ats# rels#)
+    (if (empty? rem2#) ; optional where clause
+      (expand-select renamed-ats# rels#)
       (let [prop# (second rem2#)]; drop 'where placeholder
-        (expand-select ats# rels# `(quote ~prop#))))))
+        (expand-select renamed-ats# rels# `(quote ~prop#))))))
   
 
 ; start by generating the expression tree - TODO: add query* when tree is correct
@@ -244,4 +256,5 @@
 (println (query (select :a :b :c from r) union (select :d :d :age from q)))
 )
 
-(println (expand-select [[:a :newa] :b [:c :newc]] [r]))
+(println (expand-select [:a :newa :b :c :newc] [r]))
+(println (select [:a :newa] [:b :newb] from r))
