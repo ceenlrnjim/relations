@@ -183,22 +183,23 @@
      expr#)))
 )
 
+; Moves logic on building the expression tree out of the macro
+(defn expand-select
+  ([ats rels] [:project (build-joins rels) (set ats)])
+  ([ats rels prop] [:project 
+                      [:restrict prop (build-joins rels)] 
+                      (set ats)]))
+
 ; This version doesn't require selected attributes and relations to be in vectors - is this better?
 ; probably need real parsing here
+; select :a :b :c from x y where (= :a :b)
 (defmacro select [& details]
   (let [[ats# rem1#] (split-with #(not= % 'from) details)
-        [rels# rem2#] (split-with #(not= % 'where) (rest rem1#)) ; drop the 'from and take until "where" or the end
-        ; TODO: optional where
-        prop# (second rem2#)
-        expr# [:project
-                [:restrict
-                  `(quote ~prop#) ; ?
-                  (build-joins rels#)]
-                (set ats#)]]
-     ;(println expr#)
-     ;(query* expr#)))
-     expr#))
-    
+        [rels# rem2#] (split-with #(not= % 'where) (rest rem1#))] ; drop the 'from and take until "where" or the end
+    (if (empty? rem2#)
+      (expand-select ats# rels#)
+      (let [prop# (second rem2#)]; drop 'where placeholder
+        (expand-select ats# rels# `(quote ~prop#))))))
   
 
 ; start by generating the expression tree - TODO: add query* when tree is correct
@@ -220,6 +221,7 @@
 (def q #{{:d 1 :age 27}{:d 2 :age 506}})
 ;(println (select [:b :c :name :age] from [r s q] where (= :d :a)))
 (let [expr (select :b :c :name :age from r s q where (= :d :a))]
+;(let [expr (expand-select [:b :c :name :age] [r s q] '(= :d :a))]
   (println "----------------------------------------------------------------")
   (println "Expression:")
   (println expr)
