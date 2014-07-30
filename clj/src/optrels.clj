@@ -153,6 +153,7 @@
 ; The Query language
 ; Shooting for a programmatic (non-macro) version and a human (macro) interface
 ; This is all pretty dodgy and should make use of an actual parser
+; TODO: could I use actual lists instead of vectors?
 
 ; [x y z] = [:product [:product x y] z]
 (defn build-joins [rs]
@@ -181,6 +182,9 @@
 (defn expand-select
   ([ats rels] 
     (expand-select ats rels nil))
+  ; TODO: in order to optimize the expression tree, I need visibility into the condition
+  ; so, as per the wikipedia article I'm going to limit the functions you can use - how to remove this restriction later?
+  ; This is an academic exercise, so I'm not too worried
   ([ats rels prop] 
     (let [j (build-joins rels)
           project-target (if (nil? prop) j [:restrict prop j])]
@@ -233,18 +237,92 @@
   (let [kw-converted (map #(if (not (list? %)) (keyword %) %) body)]
     (list query* (concat (list expand-query) kw-converted))))
 
+;------------------------------------------------------------------------------
+;Expression Optimization
+;------------------------------------------------------------------------------
+; For now we're going to assume that all keywords are attribute references in the tuple - TODO: lift this restriction by more specific identifier?
+; First part: break a selection expression that combines multiple attributes into multiple selections
+;  1) from first relation
+;  2) from second relation
+;  3) from combined relation for shared attributes
+; this will be used to "push" down selection before executing the join
+; [:restrict (= :a 1) [:natjoin #{{:a 0} {:a 1} {:a 2}} #{{:b 1}}]] => [:natjoin [:restrict (= :a 1) #{{:a 1}{:a 0}{:a 2}}] #{{:b 1}}]
+; [:restrict (and (= :b 1) (= :a 1)) [:natjoin #{{:a 0} {:a 1} {:a 2}} #{{:b 1}}]] => [:natjoin [:restrict (= :a 1) #{{:a 1}{:a 0}{:a 2}}] [:restrict (= :b 1) #{{:b 1}}]]
+
+  ;"determines what the attribute set is for each node in the tree, without evaluating the results"
+  ; for now putting the set of resulting attributes as the last item in the vector where it should be ignored by the evaluator
+(defn- expr-attrs [r]
+  (cond (expr? r) (last r)
+        (set? r) (attrs r)
+        :else #{}))
+
+(defmulti analyze-expr (fn [op args] op))
+(defmethod analyze-expr :union [op [r s]]
+  (let [ats (if (empty? r) (expr-attrs s) (expr-attrs r))]
+    [op r s ats]))
+(defmethod analyze-expr :diff [op [r s]]
+  (let [ats (if (empty? r) (expr-attrs s) (expr-attrs r))]
+    [op r s ats]))
+(defmethod analyze-expr :intersect [op [r s]]
+  (let [ats (if (empty? r) (expr-attrs s) (expr-attrs r))]
+    [op r s ats]))
+(defmethod analyze-expr :cartprod [op [r s]]
+  ; TODO: haven't yet checked for disjoint headers
+  (let [ats (sets/union (expr-attrs r) (expr-attrs s))]
+    [op r s ats]))
+(defmethod analyze-expr :project [op [r ks]]
+  [op r ks ks])
+(defmethod analyze-expr :restrict [op [prop r]]
+  [op prop r (expr-attrs r)])
+(defmethod analyze-expr :rename [op [r from to]]
+  [op r from to (conj (disj (expr-attrs r) from) to)])
+(defmethod analyze-expr :natjoin [op [r s]]
+  (let [ats (sets/union (expr-attrs r) (expr-attrs s))]
+    [op r s ats]))
+;
+; This is where it gets tricky requiring data to have the metadata (attribute names) mixed in with the data (the keys in the maps)
+; TODO: same deal as query* - abstract
+(defn analyze [expr]
+  (if 
+    (expr? expr)
+    (let [[op & exprs] expr]
+      (analyze-expr op (map analyze exprs))) ; need to analyze depth-first
+    expr))
+
+; TODO: starting with only checking one level up - can I make this more generic to push down multiple levels?
+(defn join-then-restrict? 
+  "Returns true if this expression is a selection/restriction of a join result"
+  [expr]
+  (let [[op arg1 arg2 & args] expr]
+    (and (= op :restrict)
+         (expr? arg2)
+         (= (first arg2) :natjoin))))
+
+; TODO: need to know the attributes that will result from each node as it stands - need to determine what the attributes of a relation are, 
+; but that relation might itself be another expression
+(defn push-down-restrict [expr]
+  expr)
+
+; TODO: starting with only checking if all attributes are in one relation of the join - next step is to break the proposition into multiple restrictions
+(defn keywords 
+  "Retrieves a set of the keywords used in the proposition"
+  [prop]
+  (when (seq prop)
+    (let [lists (filter list? prop)
+          ks (filter keyword? prop)]
+      (concat ks (mapcat keywords lists)))))
+
+(defn has-sub-expr? [expr]
+  (some expr? expr))
+
+(defn optimize-expr [expr]
+  (if (has-sub-expr? expr)
+    (cond (join-then-restrict? expr) (push-down-restrict expr)
+          :else expr)
+    expr))
+
+
 (def r #{{:a 1 :b 10 :c 100}{:a 2 :b 2 :c 200}{:a 3 :b 30 :c 300}})
 (def s #{{:d 1 :name "foo"}{:d 2 :name "bar"}})
 (def q #{{:d 1 :age 27}{:d 2 :age 506}})
-(comment
-;(println (select [:b :c :name :age] from [r s q] where (= :d :a)))
-(let [expr (select :b :c :name :age from r s q where (= :d :a))]
-;(let [expr (expand-select [:b :c :name :age] [r s q] '(= :d :a))]
-  (println "----------------------------------------------------------------")
-  (println "Expression:")
-  (println expr)
-  (println "Evals To :: ")
-  (println (query* expr)))
 
-(println (query (select :a :b from r) union (select :d as :a :age as :b from q)))
-)
