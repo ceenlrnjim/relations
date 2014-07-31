@@ -298,6 +298,19 @@
       (analyze-expr op (map analyze exprs))) ; need to analyze depth-first
     expr))
 
+(defn and-proposition? [[op arg1 & args]]
+  (and (= op :restrict)
+       (= (first arg1) 'and)))
+
+; TODO: probably need some quoting here
+(defn decompose-and-proposition [[op prop rel]]
+  (loop [conditions (drop 2 prop)
+         expr [op (second prop) rel]] ; create a new restriction node with the first condition
+    (if (seq conditions)
+      (recur (rest conditions) [op (first conditions) expr])
+      expr)))
+    
+
 ; TODO: starting with only checking one level up - can I make this more generic to push down multiple levels?
 (defn join-then-restrict? 
   "Returns true if this expression is a selection/restriction of a join result"
@@ -314,7 +327,7 @@
         ks (keywords prop)
         needs-rel1? (seq (sets/intersection ks (expr-attrs rel1)))
         needs-rel2? (seq (sets/intersection ks (expr-attrs rel2)))]
-    ; TODO need to re-analyze the sub expressions when we modify the tree
+    ; need to re-analyze the sub expressions when we modify the tree
     (cond (and needs-rel1? (not needs-rel2?)) (analyze [join-op [restrict-op prop rel1] rel2])
           (and needs-rel2? (not needs-rel1?)) (analyze [join-op rel1 [restrict-op prop rel2]])
           :else expr)))
