@@ -256,6 +256,15 @@
         (set? r) (attrs r)
         :else #{}))
 
+(defn keywords 
+  "Retrieves a set of the keywords used in the proposition"
+  [prop]
+  (when (seq prop)
+    (let [lists (filter list? prop)
+          ks (filter keyword? prop)]
+      (set (concat ks (mapcat keywords lists))))))
+
+
 (defmulti analyze-expr (fn [op args] op))
 (defmethod analyze-expr :union [op [r s]]
   (let [ats (if (empty? r) (expr-attrs s) (expr-attrs r))]
@@ -301,16 +310,15 @@
 ; TODO: need to know the attributes that will result from each node as it stands - need to determine what the attributes of a relation are, 
 ; but that relation might itself be another expression
 (defn push-down-restrict [expr]
-  expr)
+  (let [[restrict-op prop [join-op rel1 rel2]] expr
+        ks (keywords prop)
+        needs-rel1? (seq (sets/intersection ks (expr-attrs rel1)))
+        needs-rel2? (seq (sets/intersection ks (expr-attrs rel2)))]
+    (cond (and needs-rel1? (not needs-rel2?)) [join-op [restrict-op prop rel1] rel2]
+          (and needs-rel2? (not needs-rel1?)) [join-op rel1 [restrict-op prop rel2]]
+          :else expr)))
 
 ; TODO: starting with only checking if all attributes are in one relation of the join - next step is to break the proposition into multiple restrictions
-(defn keywords 
-  "Retrieves a set of the keywords used in the proposition"
-  [prop]
-  (when (seq prop)
-    (let [lists (filter list? prop)
-          ks (filter keyword? prop)]
-      (concat ks (mapcat keywords lists)))))
 
 (defn has-sub-expr? [expr]
   (some expr? expr))
@@ -325,4 +333,3 @@
 (def r #{{:a 1 :b 10 :c 100}{:a 2 :b 2 :c 200}{:a 3 :b 30 :c 300}})
 (def s #{{:d 1 :name "foo"}{:d 2 :name "bar"}})
 (def q #{{:d 1 :age 27}{:d 2 :age 506}})
-
