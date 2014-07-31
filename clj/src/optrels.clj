@@ -314,8 +314,9 @@
         ks (keywords prop)
         needs-rel1? (seq (sets/intersection ks (expr-attrs rel1)))
         needs-rel2? (seq (sets/intersection ks (expr-attrs rel2)))]
-    (cond (and needs-rel1? (not needs-rel2?)) [join-op [restrict-op prop rel1] rel2]
-          (and needs-rel2? (not needs-rel1?)) [join-op rel1 [restrict-op prop rel2]]
+    ; TODO need to re-analyze the sub expressions when we modify the tree
+    (cond (and needs-rel1? (not needs-rel2?)) (analyze [join-op [restrict-op prop rel1] rel2])
+          (and needs-rel2? (not needs-rel1?)) (analyze [join-op rel1 [restrict-op prop rel2]])
           :else expr)))
 
 ; TODO: starting with only checking if all attributes are in one relation of the join - next step is to break the proposition into multiple restrictions
@@ -325,11 +326,15 @@
 
 (defn optimize-expr [expr]
   (if (has-sub-expr? expr)
-    (cond (join-then-restrict? expr) (push-down-restrict expr)
-          :else expr)
+      (let [opt-exp (mapv #(if (expr? %) (optimize-expr %) %) expr)] ; this expression with sub expressions optimized
+        (cond (join-then-restrict? opt-exp) (push-down-restrict opt-exp)
+              :else opt-exp))
     expr))
 
 
 (def r #{{:a 1 :b 10 :c 100}{:a 2 :b 2 :c 200}{:a 3 :b 30 :c 300}})
 (def s #{{:d 1 :name "foo"}{:d 2 :name "bar"}})
 (def q #{{:d 1 :age 27}{:d 2 :age 506}})
+
+(println (optimize-expr (analyze (select :b :c :name from r s where (= :a 1)))))
+(println (optimize-expr (analyze (select :b :c :name from r s where (= :a :d)))))
