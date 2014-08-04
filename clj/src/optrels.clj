@@ -324,6 +324,8 @@
     
 
 (defn push-down-restrict [expr]
+  (println "---------------------------------------------")
+  (println expr)
   (let [[restrict-op prop rel] expr
         ks (keywords prop)]
     ; descend until we find either a relation, or multiple expressions that use keywords in ks
@@ -357,10 +359,11 @@
 
 (defn optimize-expr [expr]
   (if (has-sub-expr? expr)
-      (let [opt-exp (mapv #(if (expr? %) (optimize-expr %) %) expr)] ; this expression with sub expressions optimized
-        (cond 
-          (= (first opt-exp) :restrict) (push-down-restrict (if (and-proposition? opt-exp) (decompose-and-proposition opt-exp) opt-exp))
-              :else opt-exp))
+      (let [opt-exp (mapv #(if (expr? %) (optimize-expr %) %) expr) ; this expression with sub expressions optimized
+            result (cond 
+                    (= (first opt-exp) :restrict) (push-down-restrict (if (and-proposition? opt-exp) (decompose-and-proposition opt-exp) opt-exp))
+                        :else opt-exp))]
+        ; TODO: need to repeatedly optimize until there is no change
     expr))
 
 ; (query (select []...)
@@ -379,3 +382,18 @@
 (def r #{{:a 1 :b 10 :c 100}{:a 2 :b 2 :c 200}{:a 3 :b 30 :c 300}})
 (def s #{{:d 1 :name "foo"}{:d 2 :name "bar"}})
 (def q #{{:d 1 :age 27}{:d 2 :age 506}})
+
+
+(comment
+(println "Building data")
+(defn make-data-2-row [i] {:child-id i :parent-id (+ i 900) :child-name (str "child_" i)})
+(def data2 (into #{} (map make-data-2-row (range 100))))
+(defn make-data-1-row [i] {:id i :name (str "row" i)})
+(def data1 (into #{} (map make-data-1-row (range 1000))))
+
+(def theq (select * from data1 data2 where (and (= :id :parent-id) (= :child-id 50) (> :parent-id 900))))
+(println "Executing un-optimized...")
+(println (time (query* theq))) ; approx 55 seconds
+(println "Executing optimized...")
+(println (time (query* (optimize-expr (analyze theq))))) ; approx 665 msecs
+)
