@@ -302,15 +302,47 @@
   (and (= op :restrict)
        (= (first arg1) 'and)))
 
-; TODO: probably need some quoting here
 (defn decompose-and-proposition [[op prop rel]]
   (loop [conditions (drop 2 prop)
          expr [op (second prop) rel]] ; create a new restriction node with the first condition
     (if (seq conditions)
       (recur (rest conditions) [op (first conditions) expr])
-      expr)))
+      (analyze expr))))
     
 
+(defn push-down-restrict [expr]
+  ;(println "  ** Expr")
+  ;(println expr)
+  (let [[restrict-op prop rel] expr
+        ks (keywords prop)]
+    ; descend until we find either a relation, or multiple expressions that use keywords in ks
+    (analyze 
+      (if (not (expr? rel))
+        expr ; not an expression so it can't be pushed down
+        (let [terms-using-keywords (map-indexed  ; this is a vector of true/false indicating if the item at that position uses keywords in the proposition
+                                    (fn [ix v] 
+                                      (vector 
+                                        (and 
+                                          ; find just sets and relations (ignore propositions and operation keyword)
+                                          (or (expr? v) (set? v)) ; TODO: issue analyze payload gets checked
+                                          ; that contain at least one attribute used in the proposition
+                                          (not (empty? (sets/intersection ks (expr-attrs v)))))
+                                        ix
+                                        v))
+                                      (butlast rel)) ; strip off the set added during analysis
+              kw-uses (filter first terms-using-keywords)]
+          ;(println "  ** Terms:")
+          ;(println terms-using-keywords)
+          ;(println "  ** kw-uses")
+          ;(println kw-uses)
+          (if (> (count kw-uses) 1)
+            [restrict-op prop rel] ; properties come from multiple sub-expressions, so it can't be pushed down
+            ; find the one index where terms-using-keywords is true
+            ; return "rel" with that index replaced with push-down-restrict [restrict-op prop (the item)]
+            (assoc rel (second (first kw-uses)) (push-down-restrict [restrict-op prop (last (first kw-uses))]))))))))
+
+
+(comment
 ; TODO: starting with only checking one level up - can I make this more generic to push down multiple levels?
 (defn join-then-restrict? 
   "Returns true if this expression is a selection/restriction of a join result"
@@ -320,8 +352,7 @@
          (expr? arg2)
          (= (first arg2) :natjoin))))
 
-; TODO: need to know the attributes that will result from each node as it stands - need to determine what the attributes of a relation are, 
-; but that relation might itself be another expression
+
 (defn push-down-restrict [expr]
   (let [[restrict-op prop [join-op rel1 rel2]] expr
         ks (keywords prop)
@@ -331,6 +362,7 @@
     (cond (and needs-rel1? (not needs-rel2?)) (analyze [join-op [restrict-op prop rel1] rel2])
           (and needs-rel2? (not needs-rel1?)) (analyze [join-op rel1 [restrict-op prop rel2]])
           :else expr)))
+)
 
 ; TODO: starting with only checking if all attributes are in one relation of the join - next step is to break the proposition into multiple restrictions
 
@@ -340,7 +372,8 @@
 (defn optimize-expr [expr]
   (if (has-sub-expr? expr)
       (let [opt-exp (mapv #(if (expr? %) (optimize-expr %) %) expr)] ; this expression with sub expressions optimized
-        (cond (join-then-restrict? opt-exp) (push-down-restrict opt-exp)
+        (cond (= (first opt-exp) :restrict) (push-down-restrict opt-exp)
+        ;(cond (join-then-restrict? opt-exp) (push-down-restrict opt-exp)
               :else opt-exp))
     expr))
 
@@ -349,5 +382,7 @@
 (def s #{{:d 1 :name "foo"}{:d 2 :name "bar"}})
 (def q #{{:d 1 :age 27}{:d 2 :age 506}})
 
-(println (optimize-expr (analyze (select :b :c :name from r s where (= :a 1)))))
-(println (optimize-expr (analyze (select :b :c :name from r s where (= :a :d)))))
+;(println (optimize-expr (analyze (select :b :c :name from r s where (= :a 1)))))
+;(println (optimize-expr (analyze (select :b :c :name from r s where (= :a :d)))))
+(println (optimize-expr (analyze (select :name from (select * from r s where (= :a :d)) where (= :d 2)))))
+(println (query (optimize-expr (analyze (select :name from (select * from r s where (= :a :d)) where (= :d 2))))))
