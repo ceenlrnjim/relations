@@ -310,36 +310,34 @@
       (analyze expr))))
     
 
+; TODO: can I move analysis information into metadata?
 (defn push-down-restrict [expr]
-  ;(println "  ** Expr")
-  ;(println expr)
   (let [[restrict-op prop rel] expr
         ks (keywords prop)]
     ; descend until we find either a relation, or multiple expressions that use keywords in ks
     (analyze 
       (if (not (expr? rel))
         expr ; not an expression so it can't be pushed down
-        (let [terms-using-keywords (map-indexed  ; this is a vector of true/false indicating if the item at that position uses keywords in the proposition
+        (let [terms-using-keywords (map-indexed  
+                                    ; this is a vector of [true/false index relation-term] 
+                                    ; indicating if the item at that position uses keywords in the proposition
                                     (fn [ix v] 
-                                      (vector 
-                                        (and 
+                                      [(and 
                                           ; find just sets and relations (ignore propositions and operation keyword)
-                                          (or (expr? v) (set? v)) ; TODO: issue analyze payload gets checked
+                                          (or (expr? v) (set? v)) 
                                           ; that contain at least one attribute used in the proposition
                                           (not (empty? (sets/intersection ks (expr-attrs v)))))
-                                        ix
-                                        v))
+                                        ix v])
                                       (butlast rel)) ; strip off the set added during analysis
               kw-uses (filter first terms-using-keywords)]
-          ;(println "  ** Terms:")
-          ;(println terms-using-keywords)
-          ;(println "  ** kw-uses")
-          ;(println kw-uses)
           (if (> (count kw-uses) 1)
-            [restrict-op prop rel] ; properties come from multiple sub-expressions, so it can't be pushed down
+            ; properties in the proposition come from multiple sub-expressions, so it can't be pushed down
+            [restrict-op prop rel] 
             ; find the one index where terms-using-keywords is true
             ; return "rel" with that index replaced with push-down-restrict [restrict-op prop (the item)]
-            (assoc rel (second (first kw-uses)) (push-down-restrict [restrict-op prop (last (first kw-uses))]))))))))
+            ; TODO: count = 0?
+            (let [[t ix sub-expr] (first kw-uses)] ; we know there is only one match here
+              (assoc rel ix (push-down-restrict [restrict-op prop sub-expr])))))))))
 
 
 (comment
@@ -372,8 +370,8 @@
 (defn optimize-expr [expr]
   (if (has-sub-expr? expr)
       (let [opt-exp (mapv #(if (expr? %) (optimize-expr %) %) expr)] ; this expression with sub expressions optimized
-        (cond (= (first opt-exp) :restrict) (push-down-restrict opt-exp)
-        ;(cond (join-then-restrict? opt-exp) (push-down-restrict opt-exp)
+        (cond 
+          (= (first opt-exp) :restrict) (push-down-restrict (if (and-proposition? opt-exp) (decompose-and-proposition opt-exp) opt-exp))
               :else opt-exp))
     expr))
 
@@ -384,5 +382,9 @@
 
 ;(println (optimize-expr (analyze (select :b :c :name from r s where (= :a 1)))))
 ;(println (optimize-expr (analyze (select :b :c :name from r s where (= :a :d)))))
-(println (optimize-expr (analyze (select :name from (select * from r s where (= :a :d)) where (= :d 2)))))
-(println (query (optimize-expr (analyze (select :name from (select * from r s where (= :a :d)) where (= :d 2))))))
+;(println (optimize-expr (analyze (select :name from (select * from r s where (= :a :d)) where (= :d 2)))))
+;(println (query (optimize-expr (analyze (select :name from (select * from r s where (= :a :d)) where (= :d 2))))))
+(def andquery (select * from r s where (and (= :a :d) (= :name "bar"))))
+(println andquery)
+(println (optimize-expr (analyze andquery)))
+(println (query (optimize-expr (analyze andquery))))
