@@ -249,10 +249,23 @@
 ; [:restrict (= :a 1) [:natjoin #{{:a 0} {:a 1} {:a 2}} #{{:b 1}}]] => [:natjoin [:restrict (= :a 1) #{{:a 1}{:a 0}{:a 2}}] #{{:b 1}}]
 ; [:restrict (and (= :b 1) (= :a 1)) [:natjoin #{{:a 0} {:a 1} {:a 2}} #{{:b 1}}]] => [:natjoin [:restrict (= :a 1) #{{:a 1}{:a 0}{:a 2}}] [:restrict (= :b 1) #{{:b 1}}]]
 
-  ;"determines what the attribute set is for each node in the tree, without evaluating the results"
-  ; for now putting the set of resulting attributes as the last item in the vector where it should be ignored by the evaluator
+
+(defn- annotate-with-attrs
+  [expr ats]
+  (with-meta expr {:attributes ats}))
+  ;(conj expr ats))
+
+(defn- expression-analysis-results
+  "extracts the analyzed set of expression results"
+  [expr]
+  (:attributes (meta expr)))
+  ;(last expr))
+  
+
+;"determines what the attribute set is for each node in the tree, without evaluating the results"
 (defn- expr-attrs [r]
-  (cond (expr? r) (last r)
+  "Returns the set of attributes that the specified set or expression will result in"
+  (cond (expr? r) (expression-analysis-results r)
         (set? r) (attrs r)
         :else #{}))
 
@@ -268,26 +281,26 @@
 (defmulti analyze-expr (fn [op args] op))
 (defmethod analyze-expr :union [op [r s]]
   (let [ats (if (empty? r) (expr-attrs s) (expr-attrs r))]
-    [op r s ats]))
+    (annotate-with-attrs [op r s] ats)))
 (defmethod analyze-expr :diff [op [r s]]
   (let [ats (if (empty? r) (expr-attrs s) (expr-attrs r))]
-    [op r s ats]))
+    (annotate-with-attrs [op r s] ats)))
 (defmethod analyze-expr :intersect [op [r s]]
   (let [ats (if (empty? r) (expr-attrs s) (expr-attrs r))]
-    [op r s ats]))
+    (annotate-with-attrs [op r s] ats)))
 (defmethod analyze-expr :cartprod [op [r s]]
   ; TODO: haven't yet checked for disjoint headers
   (let [ats (sets/union (expr-attrs r) (expr-attrs s))]
-    [op r s ats]))
+    (annotate-with-attrs [op r s] ats)))
 (defmethod analyze-expr :project [op [r ks]]
-  [op r ks ks])
+  (annotate-with-attrs [op r ks] ks))
 (defmethod analyze-expr :restrict [op [prop r]]
-  [op prop r (expr-attrs r)])
+  (annotate-with-attrs [op prop r] (expr-attrs r)))
 (defmethod analyze-expr :rename [op [r from to]]
-  [op r from to (conj (disj (expr-attrs r) from) to)])
+  (annotate-with-attrs [op r from to] (conj (disj (expr-attrs r) from) to)))
 (defmethod analyze-expr :natjoin [op [r s]]
   (let [ats (sets/union (expr-attrs r) (expr-attrs s))]
-    [op r s ats]))
+    (annotate-with-attrs [op r s] ats)))
 ;
 ; This is where it gets tricky requiring data to have the metadata (attribute names) mixed in with the data (the keys in the maps)
 ; TODO: same deal as query* - abstract
@@ -328,7 +341,7 @@
                                           ; that contain at least one attribute used in the proposition
                                           (not (empty? (sets/intersection ks (expr-attrs v)))))
                                         ix v])
-                                      (butlast rel)) ; strip off the set added during analysis
+                                      rel) ; strip off the set added during analysis
               kw-uses (filter first terms-using-keywords)]
           (if (> (count kw-uses) 1)
             ; properties in the proposition come from multiple sub-expressions, so it can't be pushed down
