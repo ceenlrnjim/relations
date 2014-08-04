@@ -233,9 +233,6 @@
             (recur (drop 2 remaining-pairs) [op expr rel]))
           expr))))
 
-(defmacro query [& body]
-  (let [kw-converted (map #(if (not (list? %)) (keyword %) %) body)]
-    (list query* (concat (list expand-query) kw-converted))))
 
 ;------------------------------------------------------------------------------
 ;Expression Optimization
@@ -315,7 +312,10 @@
   (and (= op :restrict)
        (= (first arg1) 'and)))
 
+; TODO: missing recursion for nested ands?  Does that make sense?  What if ands/or are mixed in sub-expressions 
+; -> need to maintain logical equality
 (defn decompose-and-proposition [[op prop rel]]
+  "Breaks a :restrict node with a compound proposition joined with and into multiple restrict nodes"
   (loop [conditions (drop 2 prop)
          expr [op (second prop) rel]] ; create a new restriction node with the first condition
     (if (seq conditions)
@@ -323,7 +323,6 @@
       (analyze expr))))
     
 
-; TODO: can I move analysis information into metadata?
 (defn push-down-restrict [expr]
   (let [[restrict-op prop rel] expr
         ks (keywords prop)]
@@ -353,30 +352,6 @@
               (assoc rel ix (push-down-restrict [restrict-op prop sub-expr])))))))))
 
 
-(comment
-; TODO: starting with only checking one level up - can I make this more generic to push down multiple levels?
-(defn join-then-restrict? 
-  "Returns true if this expression is a selection/restriction of a join result"
-  [expr]
-  (let [[op arg1 arg2 & args] expr]
-    (and (= op :restrict)
-         (expr? arg2)
-         (= (first arg2) :natjoin))))
-
-
-(defn push-down-restrict [expr]
-  (let [[restrict-op prop [join-op rel1 rel2]] expr
-        ks (keywords prop)
-        needs-rel1? (seq (sets/intersection ks (expr-attrs rel1)))
-        needs-rel2? (seq (sets/intersection ks (expr-attrs rel2)))]
-    ; need to re-analyze the sub expressions when we modify the tree
-    (cond (and needs-rel1? (not needs-rel2?)) (analyze [join-op [restrict-op prop rel1] rel2])
-          (and needs-rel2? (not needs-rel1?)) (analyze [join-op rel1 [restrict-op prop rel2]])
-          :else expr)))
-)
-
-; TODO: starting with only checking if all attributes are in one relation of the join - next step is to break the proposition into multiple restrictions
-
 (defn has-sub-expr? [expr]
   (some expr? expr))
 
@@ -388,16 +363,19 @@
               :else opt-exp))
     expr))
 
+; (query (select []...)
+;        union
+;        (select []...)
+;        minus
+;        (select []...))
+
+(defmacro query [& body]
+  "converts set operation words into keywords, generates an expression tree, and evaluates it"
+  (let [kw-converted (map #(if (not (list? %)) (keyword %) %) body)]
+    (list query* (optimize-expr (analyze (concat (list expand-query) kw-converted))))))
+
+
 
 (def r #{{:a 1 :b 10 :c 100}{:a 2 :b 2 :c 200}{:a 3 :b 30 :c 300}})
 (def s #{{:d 1 :name "foo"}{:d 2 :name "bar"}})
 (def q #{{:d 1 :age 27}{:d 2 :age 506}})
-
-;(println (optimize-expr (analyze (select :b :c :name from r s where (= :a 1)))))
-;(println (optimize-expr (analyze (select :b :c :name from r s where (= :a :d)))))
-;(println (optimize-expr (analyze (select :name from (select * from r s where (= :a :d)) where (= :d 2)))))
-;(println (query (optimize-expr (analyze (select :name from (select * from r s where (= :a :d)) where (= :d 2))))))
-(def andquery (select * from r s where (and (= :a :d) (= :name "bar"))))
-(println andquery)
-(println (optimize-expr (analyze andquery)))
-(println (query (optimize-expr (analyze andquery))))
