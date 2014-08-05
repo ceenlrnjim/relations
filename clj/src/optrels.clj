@@ -324,8 +324,8 @@
     
 
 (defn push-down-restrict [expr]
-  (println "---------------------------------------------")
-  (println expr)
+  ;(println "---------------------------------------------")
+  ;(println expr)
   (let [[restrict-op prop rel] expr
         ks (keywords prop)]
     ; descend until we find either a relation, or multiple expressions that use keywords in ks
@@ -357,14 +357,39 @@
 (defn has-sub-expr? [expr]
   (some expr? expr))
 
+(defn optimize-restrict [init-expr]
+  (let [[init-op arg1 & args] init-expr]
+    (loop [expr init-expr
+           op init-op
+           prop arg1]
+      (let [opt-exp (push-down-restrict (if (and-proposition? expr) (decompose-and-proposition expr) expr))
+            [opt-op opt-arg1 & args] opt-exp]
+        ; loop until we don't get any change or no more restrict clauses
+        (if (or (not= opt-op :restrict)
+                (= prop opt-arg1))
+            opt-exp
+            (recur opt-exp opt-op opt-arg1))))))
+   
+
+; TODO: multiple push downs - starts getting into comparing plans and costs? want equality lower than inequality conditions?
+(defn optimize-expr [init-expr]
+  (analyze
+    (let [opt-subs (if (has-sub-expr? init-expr) (mapv #(if (expr? %) (optimize-expr %) %) init-expr) init-expr)
+          [init-op arg1 & args] opt-subs]
+      (if (= :restrict init-op) (optimize-restrict opt-subs) opt-subs))))
+  
+(comment
 (defn optimize-expr [expr]
   (if (has-sub-expr? expr)
       (let [opt-exp (mapv #(if (expr? %) (optimize-expr %) %) expr) ; this expression with sub expressions optimized
-            result (cond 
+            ]
+           ; result 
+            (cond 
                     (= (first opt-exp) :restrict) (push-down-restrict (if (and-proposition? opt-exp) (decompose-and-proposition opt-exp) opt-exp))
-                        :else opt-exp))]
+                        :else opt-exp))
         ; TODO: need to repeatedly optimize until there is no change
     expr))
+)
 
 ; (query (select []...)
 ;        union

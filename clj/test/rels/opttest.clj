@@ -13,8 +13,9 @@
         data2 #{{:parent-id 2 :child-id 2 :child-name "bar"}}
         theq (select * from data1 data2 where (and (= :id :parent-id) (= :child-id 50) (> :parent-id 900)))
         optq (optimize-expr (analyze theq))]
+        (println theq)
+        (println optq)
     (is (= :restrict (first optq)))
     (is (= '(= :id :parent-id) (second optq)))))
     
-
 (run-tests 'optrels.test)
